@@ -2,6 +2,7 @@ import os
 import asyncio
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
 
@@ -93,6 +94,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="StablFlo API", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to StablFlo API"}
@@ -111,6 +120,9 @@ def read_zones(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 @app.post("/riders/", response_model=schemas.Rider)
 def create_rider(rider: schemas.RiderCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.Rider).filter(models.Rider.phone_number == rider.phone_number).first()
+    if existing:
+        return existing
     db_rider = models.Rider(**rider.model_dump())
     db.add(db_rider)
     db.commit()
@@ -153,3 +165,7 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
 @app.get("/claims/rider/{rider_id}", response_model=list[schemas.Claim])
 def read_claims(rider_id: int, db: Session = Depends(get_db)):
     return db.query(models.Claim).filter(models.Claim.rider_id == rider_id).all()
+
+@app.get("/policies/rider/{rider_id}", response_model=list[schemas.Policy])
+def read_policies(rider_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Policy).filter(models.Policy.rider_id == rider_id).order_by(models.Policy.id.desc()).all()
