@@ -359,20 +359,20 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │                MOBILE FRONTEND  (Android PWA)              │
+ │                MOBILE FRONTEND  (Android PWA)                │ 
  │          React.js  ·  Next.js  ·  Tailwind CSS               │
  │   Service Workers · Web Push API · Geolocation · TWA-ready   │
  ├──────────────────────────────────────────────────────────────┤
- │                        BACKEND                             │
+ │                        BACKEND                               │
  │            Python  ·  FastAPI  ·  PostgreSQL                 │
  ├──────────────────────────────────────────────────────────────┤
- │                        AI / ML                             │
+ │                        AI / ML                               │
  │     Scikit-learn  ·  TensorFlow  ·  Pandas  ·  NumPy         │
  ├──────────────────────────────────────────────────────────────┤
- │                    EXTERNAL SERVICES                       │
+ │                    EXTERNAL SERVICES                         │
  │   OpenWeatherMap  ·  CPCB AQI API  ·  Razorpay Test UPI      │
  ├──────────────────────────────────────────────────────────────┤
- │                      DEPLOYMENT                            │
+ │                      DEPLOYMENT                              │
  │         Vercel (PWA Frontend)  ·  Render (Backend)           │
  └──────────────────────────────────────────────────────────────┘
 ```
