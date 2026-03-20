@@ -241,6 +241,18 @@ export default function Home() {
             {loading ? "Processing..." : "Subscribe via UPI Autopay"}
           </button>
         </div>
+
+        {/* Dev panel — development only */}
+        {process.env.NODE_ENV === "development" && (
+          <DevPanel
+            zones={zones}
+            activePolicy={activePolicy}
+            onSkipOnboarding={handleSkipOnboarding}
+            onInjectClaim={handleInjectClaim}
+            onSetCoverage={handleSetCoverage}
+            onReset={handleReset}
+          />
+        )}
       </main>
     );
   }
