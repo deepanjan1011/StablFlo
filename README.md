@@ -24,13 +24,13 @@
 
 <br/>
 
-[🎥 Watch Demo](#) &nbsp;·&nbsp; [🚀 Live App](#) &nbsp;·&nbsp; [📖 Docs](#) &nbsp;·&nbsp; [🐛 Report Bug](#)
+[🎥 Watch Demo](#) &nbsp;·&nbsp; [ Live App](#) &nbsp;·&nbsp; [ Docs](#) &nbsp;·&nbsp; [ Report Bug](#)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+##  Table of Contents
 
 1. [The Problem](#-the-problem)
 2. [What Is StablFlo?](#-what-is-stablfo)
@@ -51,31 +51,31 @@
 
 ---
 
-## 🔥 The Problem
+##  The Problem
 
 India has over **10 million food delivery riders** on Swiggy, Zomato, and ONDC. They earn ₹30–50 per delivery and have zero income protection against external disruptions.
 
-| ⚡ Disruption | 📉 Impact | 🛡️ Current Protection |
+|  Disruption |  Impact |  Current Protection |
 |---|---|---|
-| 🌧️ Heavy monsoon rain | Dispatch halted, orders drop 80% | ❌ None |
-| 🌡️ Heatwave (42°C+) | Unsafe to ride, orders dry up | ❌ None |
-| 🏭 AQI spike > 350 | Health alerts, platforms slow down | ❌ None |
-| 🌊 Flood alert | City-wide movement restricted | ❌ None |
-| 📵 Platform outage | Zero orders generated | ❌ None |
+|  Heavy monsoon rain | Dispatch halted, orders drop 80% |  None |
+|  Heatwave (42°C+) | Unsafe to ride, orders dry up |  None |
+|  AQI spike > 350 | Health alerts, platforms slow down |  None |
+|  Flood alert | City-wide movement restricted |  None |
+|  Platform outage | Zero orders generated |  None |
 
 > Riders lose **20–30% of monthly income** to events entirely outside their control. Traditional insurance requires manual claims and runs on monthly cycles — completely misaligned with weekly gig payouts.
 
 ---
 
-## 💡 What Is StablFlo?
+##  What Is StablFlo?
 
-StablFlo is a **mobile-first, AI-powered parametric insurance platform** for food delivery riders. When a verified disruption occurs, it automatically estimates income loss and triggers a UPI payout — no forms, no agent, no waiting.
+StablFlo is a **mobile-first, AI-powered parametric insurance platform** for food delivery riders. When a verified disruption occurs, it automatically estimates income loss and triggers a UPI payout — no forms, no agent, no waiting. StablFlo incorporates intelligent fraud detection, leveraging location validation, behavioral analysis, and anomaly detection models to identify suspicious claims in real time.
 
 **Coverage scope (strictly enforced):** Income loss only. No health, no vehicle, no liability.
 
 ---
 
-## 👤 Persona & Scenarios
+##  Persona & Scenarios
 
 ### Primary Persona — Meet Ravi
 
@@ -95,7 +95,7 @@ StablFlo is a **mobile-first, AI-powered parametric insurance platform** for foo
 
 ---
 
-### 🗺️ Persona-Based Scenarios
+###  Persona-Based Scenarios
 
 **Scenario 1 — Ravi · Chennai Monsoon**
 ```
@@ -111,7 +111,7 @@ Day 1:  ML Income Loss Estimator calculates:
 Day 1:  Claim auto-approved (no action from Ravi)
         UPI payout of ₹765 sent to Ravi's linked account
         Push notification: "Heavy rain detected in your zone.
-        ₹765 credited to your account. Stay safe. 🌧️"
+        ₹765 credited to your account. Stay safe. "
 
 Result: Ravi receives compensation before he even decides
         whether to go out. Zero friction. Zero forms.
@@ -128,7 +128,7 @@ May 15: Delhi records 44.2°C — threshold crossed (>42°C)
 
         Auto payout: ₹280
         Notification: "Heatwave alert in Delhi. ₹280 protected
-        earnings credited. Keep hydrated. 🌡️"
+        earnings credited. Keep hydrated. "
 ```
 
 **Scenario 3 — Ravi · Platform Outage**
@@ -144,7 +144,7 @@ May 15: Delhi records 44.2°C — threshold crossed (>42°C)
 
 ---
 
-## 🔄 Application Workflow
+##  Application Workflow
 
 ### End-to-End Flow
 
@@ -192,27 +192,27 @@ May 15: Delhi records 44.2°C — threshold crossed (>42°C)
 
 ---
 
-## ⚡ Parametric Triggers
+##  Parametric Triggers
 
 Triggers are **objective, external, and verifiable** — no rider input required.
 
-| 🔔 Trigger | 📏 Threshold | 🌐 Data Source | ⏱️ Check Frequency |
+|  Trigger |  Threshold |  Data Source |  Check Frequency |
 |---|---|---|---|
-| 🌧️ Rainfall | > 40 mm / day | OpenWeatherMap API | Every 15 min |
-| 🌡️ Heatwave | > 42 °C | OpenWeatherMap API | Every 15 min |
-| 🏭 Air Quality | AQI > 350 | CPCB / AQI public APIs | Every 30 min |
-| 🌊 Flood Alert | Official alert issued | Government disaster APIs | Every 1 hr |
-| 📵 Platform Outage | Confirmed platform-wide suspension | Webhook / simulated API | Real-time |
+|  Rainfall | > 40 mm / day | OpenWeatherMap API | Every 15 min |
+|  Heatwave | > 42 °C | OpenWeatherMap API | Every 15 min |
+|  Air Quality | AQI > 350 | CPCB / AQI public APIs | Every 30 min |
+|  Flood Alert | Official alert issued | Government disaster APIs | Every 1 hr |
+|  Platform Outage | Confirmed platform-wide suspension | Webhook / simulated API | Real-time |
 
 **Why parametric?** Traditional insurance requires riders to file claims, submit proof, and wait for approval. Parametric insurance removes all of that — the trigger IS the proof. This is the only model that works for gig workers with no time, low digital literacy, and weekly income cycles.
 
 ---
 
-## 💰 Weekly Premium Model
+##  Weekly Premium Model
 
 ### Pricing Table
 
-| 🗺️ Risk Zone | 💳 Weekly Premium | 🛡️ Max Weekly Coverage | 📊 Implied Loss Ratio | 🏙️ Example Cities |
+|  Risk Zone |  Weekly Premium |  Max Weekly Coverage |  Implied Loss Ratio |  Example Cities |
 |---|---|---|---|---|
 | 🟢 Low Risk | ₹20 | ₹1,000 | ~60% | Bangalore (clear zones) |
 | 🟡 Moderate Risk | ₹30 | ₹1,500 | ~62% | Hyderabad |
@@ -257,7 +257,7 @@ Premiums can shift ±₹10 week-to-week but are capped to prevent shock increase
 
 ---
 
-## 📱 Platform Choice — Why PWA, Not Native Android
+##  Platform Choice — Why PWA, Not Native Android
 
 This was a deliberate technical decision. Here is the full justification:
 
@@ -275,7 +275,7 @@ All heavy computation — ML scoring, trigger monitoring, fraud detection, payou
 
 ### Comparison
 
-| 🔍 Factor | 📦 Native Android App | ✅ StablFlo PWA |
+|  Factor |  Native Android App |  StablFlo PWA |
 |---|---|---|
 | Installation | Play Store download (storage + mobile data) | Tap a link → Add to Home Screen |
 | Updates | Manual approval required | Silent, automatic |
@@ -295,7 +295,7 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
 
 ---
 
-## 🧠 AI & ML Integration Plan
+##  AI & ML Integration Plan
 
 ### Overview of the ML Pipeline
 
@@ -359,20 +359,20 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │              📱  MOBILE FRONTEND  (Android PWA)              │
+ │                MOBILE FRONTEND  (Android PWA)                │ 
  │          React.js  ·  Next.js  ·  Tailwind CSS               │
  │   Service Workers · Web Push API · Geolocation · TWA-ready   │
  ├──────────────────────────────────────────────────────────────┤
- │                      ⚙️  BACKEND                             │
+ │                        BACKEND                               │
  │            Python  ·  FastAPI  ·  PostgreSQL                 │
  ├──────────────────────────────────────────────────────────────┤
- │                      🧠  AI / ML                             │
+ │                        AI / ML                               │
  │     Scikit-learn  ·  TensorFlow  ·  Pandas  ·  NumPy         │
  ├──────────────────────────────────────────────────────────────┤
- │                  🌐  EXTERNAL SERVICES                       │
+ │                    EXTERNAL SERVICES                         │
  │   OpenWeatherMap  ·  CPCB AQI API  ·  Razorpay Test UPI      │
  ├──────────────────────────────────────────────────────────────┤
- │                    ☁️  DEPLOYMENT                            │
+ │                      DEPLOYMENT                              │
  │         Vercel (PWA Frontend)  ·  Render (Backend)           │
  └──────────────────────────────────────────────────────────────┘
 ```
@@ -391,7 +391,7 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ```
  ┌─────────────────────────────────────────────────────────────┐
@@ -402,20 +402,20 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
  ┌───────────────────────────▼─────────────────────────────────┐
  │                   FastAPI  BACKEND                          │
  │                                                             │
- │   ┌─────────────────┐         ┌─────────────────┐          │
- │   │  Policy Engine  │         │  Claims Engine  │          │
- │   │  · Onboarding   │         │  · Auto-approve │          │
- │   │  · Subscriptions│         │  · Payout trigger│         │
- │   └────────┬────────┘         └────────┬────────┘          │
- │            └─────────────┬─────────────┘                   │
- │   ┌─────────────────────▼───────────────────────┐          │
- │   │                  ML  LAYER                  │          │
- │   │   Risk Profiler · Loss Estimator · Fraud    │          │
- │   └────────────────────────┬────────────────────┘          │
- │   ┌────────────────────────▼────────────────────┐          │
+ │   ┌─────────────────┐         ┌─────────────────┐           │
+ │   │  Policy Engine  │         │  Claims Engine  │           │
+ │   │  · Onboarding   │         │  · Auto-approve │           │
+ │   │  · Subscriptions│         │  · Payout trigger│          │
+ │   └────────┬────────┘         └────────┬────────┘           │
+ │            └─────────────┬─────────────┘                    │
+ │   ┌─────────────────────▼───────────────────────┐           │
+ │   │                  ML  LAYER                  │           │ 
+ │   │   Risk Profiler · Loss Estimator · Fraud    │           │
+ │   └────────────────────────┬────────────────────┘           │
+ │   ┌────────────────────────▼────────────────────┐           │
  │   │              PostgreSQL  DATABASE            │          │
- │   │      Riders · Policies · Claims · Payouts   │          │
- │   └─────────────────────────────────────────────┘          │
+ │   │      Riders · Policies · Claims · Payouts   │           │
+ │   └─────────────────────────────────────────────┘           │
  └───────────────────────────┬─────────────────────────────────┘
                              │
           ┌──────────────────┼──────────────────┐
@@ -466,30 +466,30 @@ Ravi (our primary persona) uses a Redmi 9A with 2 GB RAM. He has 4 GB of storage
 
 ---
 
-## 📊 Dashboards
+##  Dashboards
 
-### 🏍️ Rider Dashboard *(Mobile PWA)*
+###  Rider Dashboard *(Mobile PWA)*
 
-| 🧩 Widget | 📋 Details |
+|  Widget |  Details |
 |---|---|
-| 🛡️ Coverage Status | Active plan, zone, renewal date |
-| 💰 Protected This Week | Estimated earnings covered so far |
-| 📋 Claim History | Past triggers, payout amounts, timestamps |
-| ⚠️ Zone Risk Forecast | 7-day disruption risk for their area |
-| 🔔 Notifications | Push alerts for triggers and payouts |
+|  Coverage Status | Active plan, zone, renewal date |
+|  Protected This Week | Estimated earnings covered so far |
+|  Claim History | Past triggers, payout amounts, timestamps |
+|  Zone Risk Forecast | 7-day disruption risk for their area |
+|  Notifications | Push alerts for triggers and payouts |
 
 ### 🖥️ Admin Dashboard *(Web)*
 
-| 🧩 Widget | 📋 Details |
+|  Widget |  Details |
 |---|---|
-| 🗺️ Zone Heatmap | City-wide disruption trends in real time |
-| 📊 Loss Ratio | Payout vs. premium by zone and week |
-| 🚨 Fraud Signal Feed | Flagged claims with anomaly scores |
-| 🔮 Predictive Claims | Next-week payout forecast by zone |
+|  Zone Heatmap | City-wide disruption trends in real time |
+|  Loss Ratio | Payout vs. premium by zone and week |
+|  Fraud Signal Feed | Flagged claims with anomaly scores |
+|  Predictive Claims | Next-week payout forecast by zone |
 
 ---
 
-## 🔒 Constraints & Scope
+##  Constraints & Scope
 
 This product is deliberately scoped to avoid regulatory complexity and ensure focus:
 
@@ -507,9 +507,9 @@ This product is deliberately scoped to avoid regulatory complexity and ensure fo
 
 ---
 
-## 🏆 StablFlo vs. Traditional Insurance
+##  StablFlo vs. Traditional Insurance
 
-| 🔍 Feature | 🏦 Traditional Insurance | ⚡ StablFlo |
+|  Feature |  Traditional Insurance |  StablFlo |
 |---|---|---|
 | Claims process | Manual forms, agent approval | ✅ Zero-touch, fully automatic |
 | Payout speed | Days to weeks | ✅ Under 60 seconds |
@@ -522,12 +522,12 @@ This product is deliberately scoped to avoid regulatory complexity and ensure fo
 
 ---
 
-## 🗂️ Project Structure
+##  Project Structure
 
 ```
  stableflo/
  │
- ├── 📱 frontend/                   # Android PWA — React + Next.js
+ ├──  frontend/                   # Android PWA — React + Next.js
  │   ├── components/                # Reusable mobile UI components
  │   ├── pages/                     # Next.js page routes
  │   ├── public/
@@ -535,7 +535,7 @@ This product is deliberately scoped to avoid regulatory complexity and ensure fo
  │   ├── service-worker.js          # Offline support + Web Push
  │   └── styles/                    # Tailwind CSS config
  │
- ├── ⚙️  backend/
+ ├──   backend/
  │   ├── api/                       # FastAPI route handlers
  │   ├── models/
  │   │   ├── risk_profiler.py       # Zone risk scoring
@@ -547,13 +547,13 @@ This product is deliberately scoped to avoid regulatory complexity and ensure fo
  │   │   └── payments.py            # Razorpay UPI handler
  │   └── db/                        # PostgreSQL schemas & migrations
  │
- ├── 📊 docs/                       # Architecture diagrams, API specs
+ ├──  docs/                       # Architecture diagrams, API specs
  └── README.md
 ```
 
 ---
 
-## ⚙️ Getting Started
+##  Getting Started
 
 ### Prerequisites
 
@@ -602,7 +602,7 @@ npm run build && npm start
 
 ---
 
-## 🔑 Environment Variables
+##  Environment Variables
 
 ```env
 # ── Weather & Air Quality ──────────────────────────
@@ -622,7 +622,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 ```bash
 git checkout -b feature/your-feature-name
@@ -633,7 +633,7 @@ git push origin feature/your-feature-name
 
 ---
 
-## 📄 License
+##  License
 
 MIT License. See [`LICENSE`](LICENSE) for details.
 
