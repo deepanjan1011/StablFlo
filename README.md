@@ -69,7 +69,7 @@ India has over **10 million food delivery riders** on Swiggy, Zomato, and ONDC. 
 
 ## 💡 What Is StablFlo?
 
-StablFlo is a **mobile-first, AI-powered parametric insurance platform** for food delivery riders. When a verified disruption occurs, it automatically estimates income loss and triggers a UPI payout — no forms, no agent, no waiting.
+StablFlo is a **mobile-first, AI-powered parametric insurance platform** for food delivery riders. When a verified disruption occurs, it automatically estimates income loss and triggers a UPI payout — no forms, no agent, no waiting. StablFlo incorporates intelligent fraud detection, leveraging location validation, behavioral analysis, and anomaly detection models to identify suspicious claims in real time.
 
 **Coverage scope (strictly enforced):** Income loss only. No health, no vehicle, no liability.
 
