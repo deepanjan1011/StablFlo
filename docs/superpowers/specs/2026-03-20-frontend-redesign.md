@@ -15,7 +15,7 @@
 - **Muted text:** `#555`, section labels `#444`
 - **Typography:** System UI, tight letter-spacing (`-0.5px`) on headings, ALL-CAPS labels with `2px` letter-spacing
 - **Radii:** `14px` cards, `10px` inputs/rows, `24px` drawer top corners
-- **Avatar:** Monogram initials derived from phone number (e.g. first two digits → "RK" placeholder until name is stored)
+- **Avatar:** Two-character monogram derived from phone number digits (see State Changes section). Displays digit characters, e.g. `9876543210` → `"93"`. No letter initials — no name is stored.
 
 ---
 
@@ -39,7 +39,7 @@
 
 - **Header:** Left — "Dashboard" bold + zone name muted. Right — monogram avatar (36px circle, green gradient, white initials, 2px green ring). Avatar is tappable → opens profile drawer.
 - **Coverage card:** Green-tinted `#16a34a18` background, `#16a34a35` border, glow blob top-right. Hero: "Active Coverage" label + ₹ amount. Right: animated green dot + "ACTIVE" pill. Footer row: premium/wk + renewal date.
-- **Stats grid (2-col):** "Claims Paid" (green ₹ amount + payout count) | "Monitoring" (red dot "● Live" + "Weather + AQI").
+- **Stats grid (2-col):** "Claims Paid" (sum of `claims.amount` where `status === "paid"`, formatted as ₹ + count of such claims below it) | "Monitoring" (red dot "● Live" + "Weather + AQI"). Replaces the current full-width "Live Monitoring Active" banner.
 - **Recent Payouts section:** Section label + "View all" link. Each row: icon badge (🌧️/☀️/🏭 on green-tinted bg), trigger type + timestamp, ₹ amount in green + status pill. Empty state: dashed border box.
 
 ### 3. Profile Drawer
@@ -51,9 +51,9 @@ Triggered by avatar tap in the home header. Rendered as an absolutely-positioned
 - **Backdrop:** `rgba(0,0,0,0.6)` overlay, tap to dismiss
 - **Sheet:** `#0f0f0f`, `border-top-left-radius: 24px`, `border-top-right-radius: 24px`, `border-top: 1px solid #1f1f1f`
 - **Handle:** 36px × 3px `#2a2a2a` pill, centered at top
-- **Rider identity row:** 52px monogram avatar (green gradient, white initials, 3px green ring) + name (bold 17px) + phone + UPI ID + zone. "ACTIVE" badge right-aligned (green).
-- **Stats grid (3-col):** Claims count (green) | Total paid out (₹) | Weeks active. Dark `#141414` cells.
-- **Footer row:** "Member since [date]" muted left, "Close" button right.
+- **Rider identity row:** 52px monogram avatar (green gradient, white initials, 3px green ring) + phone number displayed as the primary identifier (bold 17px, no name stored) + UPI ID (or "UPI not set") + zone name. "ACTIVE" badge right-aligned (green).
+- **Stats grid (3-col):** Claims count (count of `claims` with `status === "paid"`, green) | Total paid out (sum of paid claim amounts, ₹) | Weeks active (derived: `Math.floor((Date.now() - new Date(activePolicy.start_date).getTime()) / 604800000)`, min 1). Dark `#141414` cells.
+- **Footer row:** "Member since [date]" muted left — derived from `activePolicy.start_date` formatted as "MMM YYYY". "Close" button right.
 - **State:** `isProfileOpen: boolean` in `page.tsx`, passed as prop.
 
 ### 4. Policies Tab
@@ -70,10 +70,12 @@ Align existing component to fintech dark language:
 
 **File:** `frontend/src/lib/SettingsView.tsx` (new component)
 
+Props: `riderId: number`
+
 Replaces the "Coming soon" placeholder. Five grouped sections, each as a dark card (`#111`, `border: 1px solid #1a1a1a`, `border-radius: 12px`).
 
 **Group: Payments**
-- UPI ID row: 💳 icon, current UPI ID as subtitle, "Edit →" right. Tapping opens an inline edit field with Save/Cancel.
+- UPI ID row: 💳 icon. The UPI ID is managed as local component state (`upiId: string`, default `""`). On mount, it is not fetched — the user enters/edits it directly. Tapping "Edit →" opens an inline edit field (text input pre-filled with current `upiId` state) with Save/Cancel. Save updates local state only (no backend call — UPI ID update API is out of scope). Subtitle shows current value or "Not set" if empty.
 
 **Group: Preferences**
 - Notifications row: 🔔 icon, description, toggle switch (green when on, `#2a2a2a` when off).
@@ -87,8 +89,8 @@ Replaces the "Coming soon" placeholder. Five grouped sections, each as a dark ca
 
 **Group: Danger Zone**
 - Red-tinted card (`#ef44440a`, `border: 1px solid #ef444420`), red section label.
-- Cancel Policy row: 🚫 icon, red label. Tapping shows confirmation dialog: "This will cancel your active coverage. Payouts will stop immediately." — Cancel / Confirm buttons.
-- Delete Account row: 🗑️ icon, red label. Tapping shows same confirmation pattern.
+- Cancel Policy row: 🚫 icon, red label. Tapping shows confirmation dialog: "This will cancel your active coverage. Payouts will stop immediately." — Cancel / Confirm buttons. Tapping Confirm dismisses the dialog with no further action (no backend call — out of scope).
+- Delete Account row: 🗑️ icon, red label. Tapping shows same confirmation pattern. Confirm dismisses the dialog with no further action.
 
 ---
 
@@ -110,7 +112,7 @@ Replaces the "Coming soon" placeholder. Five grouped sections, each as a dark ca
 - Avatar `onClick` → `setIsProfileOpen(true)`
 - Pass `isProfileOpen`, `onClose`, rider data to `<ProfileDrawer>`
 - Import and render `<SettingsView riderId={riderId} />` in the `activeTab === "settings"` branch
-- Derive monogram from phone number: last 10 digits, initials = first char of first 5 digits + first char of last 5 digits, uppercased (e.g. `9876543210` → `"98"`)
+- Derive monogram from phone number: take the last 10 digits, use digit at index 0 and digit at index 5, uppercased as a 2-char string (e.g. `9876543210` → `"93"`). Displayed as-is — no actual name is stored.
 
 ---
 
