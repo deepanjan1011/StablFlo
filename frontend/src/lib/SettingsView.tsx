@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 interface SettingsViewProps {
   riderId: number;
@@ -67,7 +67,7 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
             iconBg="rgba(22,163,74,0.1)"
             title="UPI ID"
             subtitle={upiId || "Not set"}
-            right={<span style={{ color: "#16a34a", fontSize: 12, fontWeight: 600 }} onClick={startEditUpi}>Edit →</span>}
+            right={<span style={{ color: "#16a34a", fontSize: 12, fontWeight: 600 }} onClick={startEditUpi} role="button" tabIndex={0}>Edit →</span>}
           />
         )}
       </SettingsCard>
@@ -116,7 +116,7 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
           iconBg="rgba(59,130,246,0.1)"
           title="Language"
           subtitle={LANGUAGES[langIndex]}
-          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setLangIndex(i => (i + 1) % LANGUAGES.length)}>▾</span>}
+          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setLangIndex(i => (i + 1) % LANGUAGES.length)} role="button" tabIndex={0}>▾</span>}
         />
       </SettingsCard>
 
@@ -128,7 +128,7 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
           iconBg="rgba(139,92,246,0.1)"
           title="Zone & Thresholds"
           subtitle="Rain 40mm · Heat 42°C · AQI 350"
-          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setThresholdsExpanded(v => !v)}>→</span>}
+          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setThresholdsExpanded(v => !v)} role="button" tabIndex={0}>→</span>}
         />
         {thresholdsExpanded && (
           <div className="px-4 pb-4">
@@ -159,7 +159,7 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
           iconBg="rgba(107,114,128,0.1)"
           title="About StablFlo"
           subtitle="How it works · FAQ · v1.0.0"
-          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setAboutExpanded(v => !v)}>→</span>}
+          right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setAboutExpanded(v => !v)} role="button" tabIndex={0}>→</span>}
         />
         {aboutExpanded && (
           <div className="px-4 pb-4">
@@ -198,14 +198,14 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
           title="Cancel Policy"
           titleColor="#ef4444"
           divider
-          right={<span style={{ color: "rgba(239,68,68,0.4)", fontSize: 13 }} onClick={() => setDialog("cancel-policy")}>→</span>}
+          right={<span style={{ color: "rgba(239,68,68,0.4)", fontSize: 13 }} onClick={() => setDialog("cancel-policy")} role="button" tabIndex={0}>→</span>}
         />
         <SettingsRow
           icon="🗑️"
           iconBg="rgba(239,68,68,0.1)"
           title="Delete Account"
           titleColor="#ef4444"
-          right={<span style={{ color: "rgba(239,68,68,0.4)", fontSize: 13 }} onClick={() => setDialog("delete-account")}>→</span>}
+          right={<span style={{ color: "rgba(239,68,68,0.4)", fontSize: 13 }} onClick={() => setDialog("delete-account")} role="button" tabIndex={0}>→</span>}
         />
       </div>
 
@@ -238,15 +238,15 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
 
 // ── Internal helpers ────────────────────────────────────────────────────────
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children }: { children: string }) {
   return (
     <p className="text-xs font-bold mb-2" style={{ color: "#444", letterSpacing: "2px" }}>
-      {(children as string).toUpperCase()}
+      {children.toUpperCase()}
     </p>
   );
 }
 
-function SettingsCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function SettingsCard({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <div className={`rounded-xl overflow-hidden ${className}`} style={{ background: "#111", border: "1px solid #1a1a1a" }}>
       {children}
@@ -260,7 +260,7 @@ interface SettingsRowProps {
   title: string;
   titleColor?: string;
   subtitle?: string;
-  right?: React.ReactNode;
+  right?: ReactNode;
   divider?: boolean;
 }
 
