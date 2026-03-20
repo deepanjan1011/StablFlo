@@ -66,11 +66,12 @@ async def trigger_monitoring_loop():
                             payout_amount = min(estimated_loss, active_policy.max_coverage)
 
                             # Fraud detection
-                            days_since_start = (datetime.utcnow() - active_policy.start_date).days
-                            hour_now = datetime.utcnow().hour
+                            now = datetime.utcnow()
+                            days_since_start = max(0, (now - active_policy.start_date).days)
+                            hour_now = now.hour
                             recent_claims_count = db.query(models.Claim).filter(
                                 models.Claim.rider_id == rider.id,
-                                models.Claim.timestamp >= datetime.utcnow() - timedelta(hours=24)
+                                models.Claim.timestamp >= now - timedelta(hours=24)
                             ).count()
 
                             if is_fraudulent(payout_amount, severity, hour_now, days_since_start, recent_claims_count):
