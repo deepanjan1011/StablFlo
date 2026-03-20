@@ -34,8 +34,8 @@ export default function Home() {
 
   function getMonogram(phoneStr: string): string {
     const digits = phoneStr.replace(/\D/g, "").slice(-10);
-    if (digits.length < 6) return digits.slice(0, 2) || "??";
-    return digits[0] + digits[5];
+    if (digits.length < 6) return (digits.slice(0, 2) || "??").toUpperCase();
+    return (digits[0] + digits[5]).toUpperCase();
   }
 
   useEffect(() => {
@@ -202,8 +202,9 @@ export default function Home() {
   }
 
   const monogram = getMonogram(phone);
-  const upiId = phone.replace(/\D/g, "").slice(-10)
-    ? `${phone.replace(/\D/g, "").slice(-10).slice(0, 5)}@upi`
+  const digits10 = phone.replace(/\D/g, "").slice(-10);
+  const upiId = digits10.length === 10
+    ? `${digits10.slice(0, 5)}@upi`
     : "";
   const paidClaimsTotal = claims.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
   const paidClaimsCount = claims.filter(c => c.status === "paid").length;
@@ -240,6 +241,7 @@ export default function Home() {
               {/* Monogram avatar */}
               <button
                 onClick={() => setIsProfileOpen(true)}
+                aria-label="Open profile"
                 className="flex items-center justify-center font-black text-white flex-shrink-0"
                 style={{
                   width: 36,
