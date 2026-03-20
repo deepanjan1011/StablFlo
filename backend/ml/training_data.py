@@ -5,6 +5,8 @@ Bangalore (low risk), Hyderabad (moderate), Chennai (high risk / coastal).
 import numpy as np
 import pandas as pd
 
+__all__ = ["generate_weather_samples", "generate_income_loss_samples"]
+
 RNG = np.random.default_rng(42)
 
 
@@ -71,11 +73,11 @@ def generate_income_loss_samples(n: int = 5000) -> pd.DataFrame:
     rows = []
     for _ in range(n):
         event_type = RNG.choice(["rain", "heat", "aqi"])
-        severity = float(RNG.uniform(1.0, 2.0))
+        severity = float(RNG.uniform(1.0, 2.0))  # severity: 1.0 = baseline event, 2.0 = extreme event
 
-        rain_mm = float(RNG.exponential(10)) if event_type == "rain" else float(RNG.exponential(1))
-        temp_c = float(RNG.normal(44, 2)) if event_type == "heat" else float(RNG.normal(30, 4))
-        aqi = float(RNG.normal(380, 40)) if event_type == "aqi" else float(RNG.normal(100, 40))
+        rain_mm = float(np.clip(RNG.exponential(10) if event_type == "rain" else RNG.exponential(1), 0, 80))
+        temp_c = float(np.clip(RNG.normal(44, 2) if event_type == "heat" else RNG.normal(30, 4), 15, 50))
+        aqi = float(np.clip(RNG.normal(380, 40) if event_type == "aqi" else RNG.normal(100, 40), 10, 500))
 
         # Base loss by event type
         base = {"rain": 0.45, "heat": 0.30, "aqi": 0.35}[event_type]
