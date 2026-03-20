@@ -50,6 +50,14 @@ export default function Home() {
       setZones(data);
       if (data.length > 0) setZoneId(data[0].id.toString());
     }).catch(err => console.error(err));
+
+    const savedRiderId = localStorage.getItem('stablflo_rider_id');
+    const savedPhone = localStorage.getItem('stablflo_phone');
+    if (savedRiderId && savedPhone) {
+      setRiderId(parseInt(savedRiderId, 10));
+      setPhone(savedPhone);
+      setStep(1);
+    }
   }, []);
 
   useEffect(() => {
@@ -87,6 +95,8 @@ export default function Home() {
     try {
       const rider = await createRider(phone, parseInt(zoneId), Number(averageDailyIncome || 900));
       setRiderId(rider.id);
+      localStorage.setItem('stablflo_rider_id', rider.id.toString());
+      localStorage.setItem('stablflo_phone', phone);
 
       const policy = await createPolicy(rider.id);
       setActivePolicy(policy);
@@ -143,6 +153,8 @@ export default function Home() {
 
   function handleReset() {
     setDevMode(false);
+    localStorage.removeItem('stablflo_rider_id');
+    localStorage.removeItem('stablflo_phone');
     setStep(0);
     setRiderId(null);
     setActivePolicy(null);

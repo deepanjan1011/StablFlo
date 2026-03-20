@@ -177,6 +177,15 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
     if not rider:
         raise HTTPException(status_code=404, detail="Rider not found")
 
+    # If rider already has an active policy, return it
+    existing_policy = db.query(models.Policy).filter(
+        models.Policy.rider_id == policy.rider_id,
+        models.Policy.is_active == True
+    ).first()
+    
+    if existing_policy:
+        return existing_policy
+
     # Apply pending zone change at the start of a new billing cycle
     if rider.pending_zone_id:
         rider.zone_id = rider.pending_zone_id
