@@ -133,7 +133,7 @@ export function PoliciesView({ activePolicy, allPolicies, zones, currentZone, ri
       {/* Coverage history */}
       <section className="mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <p className="text-xs font-bold" style={{ color: "#444", letterSpacing: "2px" }}>COVERAGE HISTORY</p>
+          <h2 className="text-xs font-bold" style={{ color: "#444", letterSpacing: "2px" }}>COVERAGE HISTORY</h2>
           <div className="flex-1 h-px" style={{ background: "#1a1a1a" }} />
           {expiredPolicies.length > 0 && (
             <span className="text-xs font-mono" style={{ color: "#333" }}>
@@ -180,7 +180,7 @@ export function PoliciesView({ activePolicy, allPolicies, zones, currentZone, ri
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
                       <p className="font-bold text-sm" style={{ color: "#555" }}>₹{policy.premium_paid}</p>
-                      <p className="text-xs font-bold uppercase mt-0.5" style={{ color: "#333", letterSpacing: "1.5px", fontSize: 9 }}>Expired</p>
+                      <p className="font-bold uppercase mt-0.5" style={{ color: "#333", letterSpacing: "1.5px", fontSize: 9 }}>Expired</p>
                     </div>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function PoliciesView({ activePolicy, allPolicies, zones, currentZone, ri
       {/* Zone change */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <p className="text-xs font-bold" style={{ color: "#444", letterSpacing: "2px" }}>DELIVERY ZONE</p>
+          <h2 className="text-xs font-bold" style={{ color: "#444", letterSpacing: "2px" }}>DELIVERY ZONE</h2>
           <div className="flex-1 h-px" style={{ background: "#1a1a1a" }} />
         </div>
 
