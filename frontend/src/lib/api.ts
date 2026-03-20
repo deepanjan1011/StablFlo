@@ -6,7 +6,7 @@ export async function fetchZones() {
   return res.json();
 }
 
-export async function createRider(phoneNumber: string, zoneId: number) {
+export async function createRider(phoneNumber: string, zoneId: number, averageDailyIncome: number = 900) {
   const res = await fetch(`${API_BASE}/riders/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -14,7 +14,8 @@ export async function createRider(phoneNumber: string, zoneId: number) {
       phone_number: phoneNumber,
       platform_id: `platform_${Date.now()}`,
       zone_id: zoneId,
-      upi_id: `${phoneNumber}@upi`
+      upi_id: `${phoneNumber}@upi`,
+      average_daily_income: averageDailyIncome
     })
   });
   if (!res.ok) throw new Error("Failed to create rider");
@@ -50,5 +51,14 @@ export async function requestZoneChange(riderId: number, zoneId: number) {
     body: JSON.stringify({ zone_id: zoneId }),
   });
   if (!res.ok) throw new Error("Failed to request zone change");
+  return res.json();
+}
+
+export async function simulateAdminEvent(riderId: number, triggerType: string, severity: number) {
+  const res = await fetch(`${API_BASE}/admin/simulate_event/${riderId}?trigger_event=${triggerType}&severity=${severity}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res.ok) throw new Error("Failed to simulate event");
   return res.json();
 }

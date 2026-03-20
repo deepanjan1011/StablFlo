@@ -24,6 +24,7 @@ class Rider(Base):
     zone_id = Column(Integer, ForeignKey("zones.id"))
     upi_id = Column(String)
     pending_zone_id = Column(Integer, ForeignKey("zones.id"), nullable=True)
+    average_daily_income = Column(Integer, default=900)
 
     zone = relationship("Zone", back_populates="riders", foreign_keys=[zone_id])
     policies = relationship("Policy", back_populates="rider")

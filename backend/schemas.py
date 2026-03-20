@@ -24,6 +24,7 @@ class RiderBase(BaseModel):
     platform_id: str
     zone_id: int
     upi_id: str
+    average_daily_income: int = 900
 
 class RiderCreate(RiderBase):
     pass

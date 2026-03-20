@@ -62,7 +62,7 @@ async def trigger_monitoring_loop():
                         ).first()
                         
                         if active_policy:
-                            estimated_loss = estimate_income_loss(1000, trigger_event, severity)
+                            estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
                             payout_amount = min(estimated_loss, active_policy.max_coverage)
 
                             # Fraud detection
@@ -195,7 +195,7 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
         start_date=datetime.utcnow(),
         end_date=datetime.utcnow() + timedelta(days=policy.duration_days),
         premium_paid=premium,
-        max_coverage=premium * 40, # Example multiplier for max coverage
+        max_coverage=zone.base_premium * 50, # Exactly maps 20->1000, 30->1500, 40->2000 max payouts
         is_active=True
     )
     db.add(db_policy)
@@ -210,3 +210,34 @@ def read_claims(rider_id: int, db: Session = Depends(get_db)):
 @app.get("/policies/rider/{rider_id}", response_model=list[schemas.Policy])
 def read_policies(rider_id: int, db: Session = Depends(get_db)):
     return db.query(models.Policy).filter(models.Policy.rider_id == rider_id).order_by(models.Policy.id.desc()).all()
+
+@app.post("/admin/simulate_event/{rider_id}", response_model=schemas.Claim)
+def simulate_event(rider_id: int, trigger_event: str, severity: float, db: Session = Depends(get_db)):
+    """God mode endpoint to forcefully trigger an ML payout for a specific rider"""
+    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
+    if not rider: raise HTTPException(status_code=404, detail="Rider not found")
+    
+    active_policy = db.query(models.Policy).filter(
+        models.Policy.rider_id == rider.id,
+        models.Policy.is_active == True
+    ).first()
+    if not active_policy: raise HTTPException(status_code=400, detail="No active policy found")
+        
+    estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
+    payout_amount = min(estimated_loss, active_policy.max_coverage)
+
+    new_claim = models.Claim(
+        rider_id=rider.id,
+        trigger_type=trigger_event,
+        amount=payout_amount,
+        status="approved"
+    )
+    db.add(new_claim)
+    db.commit()
+    db.refresh(new_claim)
+
+    initiate_payout(rider.upi_id, payout_amount, new_claim.id)
+    new_claim.status = "paid"
+    db.commit()
+    db.refresh(new_claim)
+    return new_claim

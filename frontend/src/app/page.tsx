@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchZones, createRider, createPolicy, fetchClaims, fetchPolicies } from "@/lib/api";
+import { fetchZones, createRider, createPolicy, fetchClaims, fetchPolicies, simulateAdminEvent } from "@/lib/api";
 import { PoliciesView } from "@/lib/PoliciesView";
 import { ProfileDrawer } from "@/lib/ProfileDrawer";
 import { SettingsView } from "@/lib/SettingsView";
@@ -33,6 +33,7 @@ export default function Home() {
 
   // Form State
   const [phone, setPhone] = useState("");
+  const [averageDailyIncome, setAverageDailyIncome] = useState<number | "">("");
   const [zoneId, setZoneId] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -84,7 +85,7 @@ export default function Home() {
     if (!zoneId) return;
     setLoading(true);
     try {
-      const rider = await createRider(phone, parseInt(zoneId));
+      const rider = await createRider(phone, parseInt(zoneId), Number(averageDailyIncome || 900));
       setRiderId(rider.id);
 
       const policy = await createPolicy(rider.id);
@@ -125,8 +126,15 @@ export default function Home() {
     setStep(1);
   }
 
-  function handleInjectClaim(claim: Claim) {
-    setClaims(prev => [claim, ...prev]);
+  async function handleSimulateEvent(triggerType: string, severity: number) {
+    if (!riderId) return;
+    try {
+      const claim = await simulateAdminEvent(riderId, triggerType, severity);
+      setClaims(prev => [claim, ...prev]);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to simulate event - ensure backend is running.");
+    }
   }
 
   function handleSetCoverage(amount: number) {
@@ -187,6 +195,29 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Income input */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>AVG DAILY EARNINGS</p>
+            <div
+              className="flex items-center rounded-xl overflow-hidden"
+              style={{ background: "#111", border: "1px solid #1f1f1f" }}
+            >
+              <span
+                className="px-4 py-3.5 text-sm font-semibold flex-shrink-0"
+                style={{ color: "#444", borderRight: "1px solid #1f1f1f" }}
+              >
+                ₹
+              </span>
+              <input
+                type="number"
+                value={averageDailyIncome}
+                onChange={(e) => { setAverageDailyIncome(e.target.value ? Number(e.target.value) : ""); setFormError(null); }}
+                className="flex-1 bg-transparent px-4 py-3.5 text-white text-sm focus:outline-none"
+                placeholder="1000"
+              />
+            </div>
+          </div>
+
           {/* Zone select */}
           <div className="mb-4">
             <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>DELIVERY ZONE</p>
@@ -234,7 +265,7 @@ export default function Home() {
           {/* CTA */}
           <button
             onClick={handleSubscribe}
-            disabled={loading || zones.length === 0 || !phone}
+            disabled={loading || zones.length === 0 || !phone || !averageDailyIncome}
             className="w-full rounded-xl py-4 font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
             style={{ background: "#16a34a", letterSpacing: "0.3px" }}
           >
@@ -247,8 +278,9 @@ export default function Home() {
           <DevPanel
             zones={zones}
             activePolicy={activePolicy}
+            riderId={riderId}
             onSkipOnboarding={handleSkipOnboarding}
-            onInjectClaim={handleInjectClaim}
+            onSimulateEvent={handleSimulateEvent}
             onSetCoverage={handleSetCoverage}
             onReset={handleReset}
           />
@@ -278,8 +310,9 @@ export default function Home() {
         <DevPanel
           zones={zones}
           activePolicy={activePolicy}
+          riderId={riderId}
           onSkipOnboarding={handleSkipOnboarding}
-          onInjectClaim={handleInjectClaim}
+          onSimulateEvent={handleSimulateEvent}
           onSetCoverage={handleSetCoverage}
           onReset={handleReset}
         />

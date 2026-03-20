@@ -9,13 +9,14 @@ type Claim = { id: number; trigger_type: string; amount: number; timestamp: stri
 interface DevPanelProps {
   zones: Zone[];
   activePolicy: Policy | null;
+  riderId: number | null;
   onSkipOnboarding: (zone: Zone) => void;
-  onInjectClaim: (claim: Claim) => void;
+  onSimulateEvent: (triggerType: string, severity: number) => void;
   onSetCoverage: (amount: number) => void;
   onReset: () => void;
 }
 
-export function DevPanel({ zones, activePolicy, onSkipOnboarding, onInjectClaim, onSetCoverage, onReset }: DevPanelProps) {
+export function DevPanel({ zones, activePolicy, riderId, onSkipOnboarding, onSimulateEvent, onSetCoverage, onReset }: DevPanelProps) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [coverage, setCoverage] = useState(activePolicy?.max_coverage ?? 32000);
 
@@ -43,14 +44,12 @@ export function DevPanel({ zones, activePolicy, onSkipOnboarding, onInjectClaim,
     onSetCoverage(next);
   }
 
-  function injectClaim(triggerType: string, amount: number) {
-    onInjectClaim({
-      id: Date.now(),
-      trigger_type: triggerType,
-      amount,
-      timestamp: new Date().toISOString(),
-      status: "paid",
-    });
+  function dispatchEvent(triggerType: string, severity: number) {
+    if (riderId) {
+      onSimulateEvent(triggerType, severity);
+    } else {
+      alert("Please complete onboarding first so the AI knows your specific income & zone!");
+    }
   }
 
   return (
@@ -129,15 +128,15 @@ export function DevPanel({ zones, activePolicy, onSkipOnboarding, onInjectClaim,
               <p className="text-sm font-semibold text-white mb-3">Inject Claim</p>
               <div className="flex gap-2 flex-wrap">
                 {[
-                  { label: "🌧️ Rain ₹800", type: "rain", amount: 800 },
-                  { label: "☀️ Heat ₹600", type: "heat", amount: 600 },
-                  { label: "🏭 AQI ₹700", type: "aqi", amount: 700 },
-                ].map(({ label, type, amount }) => (
+                  { label: "🌧️ Rain", type: "rain", severity: 1.0 },
+                  { label: "☀️ Heat", type: "heat", severity: 1.0 },
+                  { label: "🏭 AQI", type: "aqi", severity: 1.0 },
+                ].map(({ label, type, severity }) => (
                   <button
                     key={type}
-                    onClick={() => injectClaim(type, amount)}
+                    onClick={() => dispatchEvent(type, severity)}
                     className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-                    style={{ background: "#1a1a1a", border: "1px solid #333", color: "#ccc" }}
+                    style={{ background: "#222", border: "1px solid #444", color: "#ccc" }}
                   >
                     {label}
                   </button>
