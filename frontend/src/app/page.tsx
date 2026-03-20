@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { fetchZones, createRider, createPolicy, fetchClaims, fetchPolicies } from "@/lib/api";
 import { PoliciesView } from "@/lib/PoliciesView";
+import { ProfileDrawer } from "@/lib/ProfileDrawer";
+import { SettingsView } from "@/lib/SettingsView";
 
 type Zone = { id: number; name: string; city: string; base_premium: number; status: string };
 type Policy = { id: number; max_coverage: number; premium_paid: number; start_date: string; end_date: string; is_active: boolean };
@@ -28,6 +30,13 @@ export default function Home() {
   const [phone, setPhone] = useState("");
   const [zoneId, setZoneId] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  function getMonogram(phoneStr: string): string {
+    const digits = phoneStr.replace(/\D/g, "").slice(-10);
+    if (digits.length < 6) return digits.slice(0, 2) || "??";
+    return digits[0] + digits[5];
+  }
 
   useEffect(() => {
     fetchZones().then(data => {
@@ -192,6 +201,13 @@ export default function Home() {
     );
   }
 
+  const monogram = getMonogram(phone);
+  const upiId = phone.replace(/\D/g, "").slice(-10)
+    ? `${phone.replace(/\D/g, "").slice(-10).slice(0, 5)}@upi`
+    : "";
+  const paidClaimsTotal = claims.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
+  const paidClaimsCount = claims.filter(c => c.status === "paid").length;
+
   const navItems: { tab: Tab; icon: string; label: string }[] = [
     { tab: "home", icon: "🏠", label: "Home" },
     { tab: "policies", icon: "🛡️", label: "Policies" },
@@ -199,101 +215,182 @@ export default function Home() {
   ];
 
   return (
-    <main className="flex min-h-screen flex-col bg-zinc-950 relative overflow-hidden">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-64 bg-primary/5 rounded-b-[100%] blur-[80px] pointer-events-none" />
+    <main className="flex min-h-screen flex-col relative overflow-hidden" style={{ background: "#080808" }}>
+      {/* Profile drawer */}
+      <ProfileDrawer
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        phone={phone}
+        upiId={upiId}
+        zone={selectedZone}
+        activePolicy={activePolicy}
+        claims={claims}
+      />
 
-      {/* Scrollable content area */}
-      <div className="flex-1 overflow-y-auto px-6 pb-2">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-2">
         {activeTab === "home" && (
           <>
-            <header className="flex justify-between items-center mb-8 z-10 pt-4">
+            {/* Header */}
+            <header className="flex justify-between items-center pt-5 mb-6">
               <div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Dashboard</h1>
-                <p className="text-zinc-400 text-sm">{selectedZone?.name || "Active Zone"}</p>
+                <h1 className="text-2xl font-black text-white" style={{ letterSpacing: "-0.5px" }}>Dashboard</h1>
+                <p className="text-xs mt-0.5" style={{ color: "#555" }}>{selectedZone?.name ?? "Active Zone"}</p>
               </div>
-              <div className="h-10 w-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-400 shadow-inner">
-                👤
-              </div>
+              {/* Monogram avatar */}
+              <button
+                onClick={() => setIsProfileOpen(true)}
+                className="flex items-center justify-center font-black text-white flex-shrink-0"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #16a34a, #15803d)",
+                  fontSize: 13,
+                  boxShadow: "0 0 0 2px rgba(22,163,74,0.3)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {monogram}
+              </button>
             </header>
 
+            {/* Coverage card */}
             {activePolicy ? (
-              <section className="glass-card p-6 mb-6 z-10 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 blur-[40px] rounded-full pointer-events-none" />
-                <div className="flex justify-between items-start mb-6">
+              <section
+                className="rounded-2xl p-5 mb-4 relative overflow-hidden"
+                style={{
+                  background: "rgba(22,163,74,0.09)",
+                  border: "1px solid rgba(22,163,74,0.28)",
+                }}
+              >
+                {/* Glow blob */}
+                <div
+                  className="absolute -top-4 -right-4 w-24 h-24 rounded-full pointer-events-none"
+                  style={{ background: "radial-gradient(circle, rgba(22,163,74,0.3), transparent)" }}
+                />
+                <div className="flex justify-between items-start mb-4">
                   <div>
-                    <p className="text-zinc-400 text-sm font-medium mb-1">Active Coverage</p>
-                    <h2 className="text-3xl font-bold text-white">Up to ₹{activePolicy.max_coverage}</h2>
+                    <p className="text-xs font-semibold mb-1" style={{ color: "#16a34a", letterSpacing: "2px" }}>ACTIVE COVERAGE</p>
+                    <h2 className="text-4xl font-black text-white" style={{ letterSpacing: "-1.5px" }}>
+                      ₹{activePolicy.max_coverage.toLocaleString("en-IN")}
+                    </h2>
                   </div>
-                  <span className="px-3 py-1 bg-primary/20 text-primary text-xs font-semibold rounded-full border border-primary/30 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    Active
+                  <span
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                    style={{
+                      background: "rgba(22,163,74,0.15)",
+                      border: "1px solid rgba(22,163,74,0.35)",
+                      color: "#16a34a",
+                    }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full animate-pulse"
+                      style={{ background: "#16a34a" }}
+                    />
+                    ACTIVE
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-500">Premium Paid</span>
-                  <span className="text-zinc-300 font-medium">₹{activePolicy.premium_paid} / week</span>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "#555" }}>Premium ₹{activePolicy.premium_paid}/wk</span>
+                  <span style={{ color: "#777" }}>
+                    Renews {new Date(activePolicy.end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} →
+                  </span>
                 </div>
               </section>
             ) : (
-              <section className="glass-card p-6 mb-6 z-10 flex items-center justify-center">
-                <p className="text-zinc-400 animate-pulse">Loading active policy...</p>
+              <section
+                className="rounded-2xl p-5 mb-4 flex items-center justify-center"
+                style={{ border: "1px dashed #1f1f1f" }}
+              >
+                <p className="text-sm animate-pulse" style={{ color: "#555" }}>Loading active policy...</p>
               </section>
             )}
 
-            <section className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 mb-6 z-10 flex gap-4 items-center shadow-lg">
-              <div className="flex-shrink-0 w-10 h-10 bg-red-500/20 border border-red-500/30 rounded-xl flex items-center justify-center text-red-400 text-xl">
-                📡
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: "#555", letterSpacing: "1.5px", fontSize: 9 }}>CLAIMS PAID</p>
+                <p className="text-2xl font-black" style={{ color: "#4ade80" }}>
+                  ₹{paidClaimsTotal.toLocaleString("en-IN")}
+                </p>
+                <p className="text-xs mt-1" style={{ color: "#333" }}>{paidClaimsCount} payout{paidClaimsCount !== 1 ? "s" : ""}</p>
               </div>
-              <div>
-                <h3 className="text-red-400 font-semibold mb-0.5 text-sm">Live Monitoring Active</h3>
-                <p className="text-red-400/80 text-xs leading-relaxed">The AI is tracking {selectedZone?.city || "your city"}'s live weather and AQI dynamically.</p>
+              <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: "#555", letterSpacing: "1.5px", fontSize: 9 }}>MONITORING</p>
+                <p className="text-sm font-bold mt-1" style={{ color: "#ef4444" }}>● Live</p>
+                <p className="text-xs mt-1" style={{ color: "#333" }}>Weather + AQI</p>
               </div>
-            </section>
+            </div>
 
-            <section className="z-10">
-              <div className="flex justify-between items-end mb-4">
-                <h3 className="text-lg font-semibold text-white">Recent Payouts</h3>
+            {/* Recent payouts */}
+            <section>
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-xs font-bold" style={{ color: "#444", letterSpacing: "2px" }}>RECENT PAYOUTS</p>
                 {claims.length > 0 && (
                   <button
                     onClick={() => setActiveTab("policies")}
-                    className="text-primary text-xs font-medium hover:underline"
+                    className="text-xs font-semibold"
+                    style={{ color: "#16a34a" }}
                   >
                     View all
                   </button>
                 )}
               </div>
-
-              <div className="space-y-3">
-                {claims.length === 0 ? (
-                  <div className="text-center py-8 border border-dashed border-zinc-800 rounded-2xl">
-                    <p className="text-zinc-500 text-sm">No claims triggered yet.</p>
-                    <p className="text-zinc-600 text-xs mt-1">If weather breaches the threshold, a payout will appear here instantly.</p>
-                  </div>
-                ) : (
-                  claims.map(claim => (
-                    <div key={claim.id} className="bg-zinc-900/60 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between transition-colors hover:bg-zinc-800/80">
-                      <div className="flex items-center gap-3.5">
-                        <div className="p-2.5 rounded-xl text-lg flex items-center justify-center border bg-primary/10 border-primary/20 text-primary">
-                          <span className="filter drop-shadow-md">
-                            {claim.trigger_type === 'rain' ? '🌧️' : claim.trigger_type === 'heat' ? '☀️' : '🏭'}
-                          </span>
+              {claims.length === 0 ? (
+                <div
+                  className="text-center py-10 rounded-2xl"
+                  style={{ border: "1px dashed #1f1f1f" }}
+                >
+                  <p className="text-sm" style={{ color: "#555" }}>No payouts yet.</p>
+                  <p className="text-xs mt-1" style={{ color: "#333" }}>
+                    If weather breaches the threshold, a payout appears here instantly.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {claims.map(claim => (
+                    <div
+                      key={claim.id}
+                      className="flex items-center justify-between rounded-xl p-4"
+                      style={{ background: "#111", border: "1px solid #1a1a1a" }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center justify-center rounded-xl text-lg flex-shrink-0"
+                          style={{
+                            width: 36,
+                            height: 36,
+                            background: "rgba(22,163,74,0.1)",
+                            border: "1px solid rgba(22,163,74,0.2)",
+                          }}
+                        >
+                          {claim.trigger_type === "rain" ? "🌧️" : claim.trigger_type === "heat" ? "☀️" : "🏭"}
                         </div>
                         <div>
-                          <h4 className="text-zinc-200 font-medium text-[15px] capitalize">{claim.trigger_type} Alert</h4>
-                          <p className="text-zinc-500 text-xs mt-1 font-medium">{new Date(claim.timestamp).toLocaleString()}</p>
+                          <p className="text-sm font-semibold text-white capitalize">{claim.trigger_type} Alert</p>
+                          <p className="text-xs mt-0.5" style={{ color: "#555" }}>
+                            {new Date(claim.timestamp).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-emerald-400 font-bold tracking-tight">₹{claim.amount}</p>
+                        <p className="font-black" style={{ color: "#4ade80" }}>₹{claim.amount}</p>
                         <div className="flex items-center justify-end gap-1 mt-1">
-                          <div className={`w-1 h-1 rounded-full ${claim.status === 'paid' ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                          <p className="text-zinc-500 text-[10px] uppercase tracking-wider font-semibold">{claim.status}</p>
+                          <div
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ background: claim.status === "paid" ? "#16a34a" : "#f59e0b" }}
+                          />
+                          <p className="text-xs font-bold uppercase" style={{ color: "#555", letterSpacing: "1px", fontSize: 9 }}>
+                            {claim.status}
+                          </p>
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </>
         )}
@@ -309,25 +406,25 @@ export default function Home() {
         )}
 
         {activeTab === "settings" && (
-          <div className="pt-4 z-10">
-            <h1 className="text-2xl font-bold text-white tracking-tight mb-2">Settings</h1>
-            <p className="text-zinc-500 text-sm">Coming soon.</p>
-          </div>
+          <SettingsView riderId={riderId ?? 0} />
         )}
       </div>
 
       {/* Bottom nav */}
-      <nav className="z-10 bg-zinc-900/90 backdrop-blur-xl border-t border-zinc-800/80 px-6 py-3 flex-shrink-0">
+      <nav
+        className="flex-shrink-0 px-6 py-3"
+        style={{ background: "rgba(8,8,8,0.95)", borderTop: "1px solid #111", backdropFilter: "blur(20px)" }}
+      >
         <ul className="flex justify-around">
           {navItems.map(({ tab, icon, label }) => (
             <li key={tab}>
               <button
                 onClick={() => setActiveTab(tab)}
                 className="flex flex-col items-center gap-1 transition-colors"
-                style={{ color: activeTab === tab ? "#16a34a" : "#71717a" }}
+                style={{ color: activeTab === tab ? "#16a34a" : "#444" }}
               >
                 <span className="text-lg">{icon}</span>
-                <span className="text-[10px] font-semibold">{label}</span>
+                <span className="font-bold" style={{ fontSize: 10, letterSpacing: "0.5px" }}>{label}</span>
               </button>
             </li>
           ))}
