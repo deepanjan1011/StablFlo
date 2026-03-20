@@ -36,3 +36,4 @@ frontend/.pnpm-debug.log*
 *.swo
 __pycache__/
 *.pyc
+docs/superpowers/
