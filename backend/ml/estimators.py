@@ -67,7 +67,7 @@ def calculate_risk_premium(zone_base_premium: int, weather_data: dict, aqi_data:
             multiplier += 0.4
         if aqi > 300:
             multiplier += 0.3
-        multiplier = min(multiplier, 2.5)
+        multiplier = max(1.0, min(multiplier, 2.5))
 
     return int(zone_base_premium * multiplier)
 
@@ -91,6 +91,6 @@ def estimate_income_loss(rider_avg_daily_income: int, event_type: str, severity:
         # Heuristic fallback
         base_loss_pct = 0.4
         type_mult = {"rain": 1.2, "heat": 0.8}.get(event_type, 1.0)
-        loss_pct = min(base_loss_pct * type_mult * severity, 0.80)
+        loss_pct = max(0.05, min(base_loss_pct * type_mult * severity, 0.80))
 
     return int(min(rider_avg_daily_income * loss_pct, rider_avg_daily_income * 0.8))
