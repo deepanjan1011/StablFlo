@@ -136,12 +136,31 @@ def read_rider(rider_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Rider not found")
     return db_rider
 
+@app.patch("/riders/{rider_id}/zone", response_model=schemas.Rider)
+def request_zone_change(rider_id: int, body: schemas.ZoneChangeRequest, db: Session = Depends(get_db)):
+    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+    zone = db.query(models.Zone).filter(models.Zone.id == body.zone_id).first()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+    rider.pending_zone_id = body.zone_id
+    db.commit()
+    db.refresh(rider)
+    return rider
+
 @app.post("/policies/", response_model=schemas.Policy)
 def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
     rider = db.query(models.Rider).filter(models.Rider.id == policy.rider_id).first()
     if not rider:
         raise HTTPException(status_code=404, detail="Rider not found")
-        
+
+    # Apply pending zone change at the start of a new billing cycle
+    if rider.pending_zone_id:
+        rider.zone_id = rider.pending_zone_id
+        rider.pending_zone_id = None
+        db.commit()
+
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
     
     # Calculate premium using real data

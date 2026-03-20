@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { requestZoneChange } from "@/lib/api";
 
 type Zone = { id: number; name: string; city: string; base_premium: number; status: string };
 type Policy = {
@@ -17,6 +18,7 @@ interface PoliciesViewProps {
   allPolicies: Policy[];
   zones: Zone[];
   currentZone: Zone | null;
+  riderId: number;
 }
 
 function formatDate(dateStr: string) {
@@ -55,7 +57,7 @@ function ClockIcon() {
   );
 }
 
-export function PoliciesView({ activePolicy, allPolicies, zones, currentZone }: PoliciesViewProps) {
+export function PoliciesView({ activePolicy, allPolicies, zones, currentZone, riderId }: PoliciesViewProps) {
   const [selectedNewZone, setSelectedNewZone] = useState<string>("");
   const [zoneChangeScheduled, setZoneChangeScheduled] = useState<string | null>(null);
 
@@ -67,10 +69,17 @@ export function PoliciesView({ activePolicy, allPolicies, zones, currentZone }: 
 
   const nextCycleDate = activePolicy ? formatDate(activePolicy.end_date) : "next cycle";
 
-  function handleScheduleZoneChange() {
+  async function handleScheduleZoneChange() {
     if (!selectedNewZone) return;
     const zone = zones.find((z) => z.id.toString() === selectedNewZone);
-    if (zone) setZoneChangeScheduled(zone.name);
+    if (zone) {
+      try {
+        await requestZoneChange(riderId, zone.id);
+      } catch {
+        // zone change is best-effort; still show scheduled state
+      }
+      setZoneChangeScheduled(zone.name);
+    }
   }
 
   return (

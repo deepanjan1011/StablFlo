@@ -274,6 +274,7 @@ export default function Home() {
             allPolicies={allPolicies}
             zones={zones}
             currentZone={selectedZone}
+            riderId={riderId ?? 0}
           />
         )}
 

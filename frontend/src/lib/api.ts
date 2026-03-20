@@ -42,3 +42,13 @@ export async function fetchPolicies(riderId: number) {
   if (!res.ok) throw new Error("Failed to fetch policies");
   return res.json();
 }
+
+export async function requestZoneChange(riderId: number, zoneId: number) {
+  const res = await fetch(`${API_BASE}/riders/${riderId}/zone`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone_id: zoneId }),
+  });
+  if (!res.ok) throw new Error("Failed to request zone change");
+  return res.json();
+}

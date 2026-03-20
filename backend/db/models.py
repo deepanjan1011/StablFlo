@@ -12,7 +12,7 @@ class Zone(Base):
     base_premium = Column(Integer)
     status = Column(String, default="active")
     
-    riders = relationship("Rider", back_populates="zone")
+    riders = relationship("Rider", back_populates="zone", foreign_keys="Rider.zone_id")
 
 
 class Rider(Base):
@@ -23,8 +23,9 @@ class Rider(Base):
     platform_id = Column(String, unique=True, index=True)
     zone_id = Column(Integer, ForeignKey("zones.id"))
     upi_id = Column(String)
-    
-    zone = relationship("Zone", back_populates="riders")
+    pending_zone_id = Column(Integer, ForeignKey("zones.id"), nullable=True)
+
+    zone = relationship("Zone", back_populates="riders", foreign_keys=[zone_id])
     policies = relationship("Policy", back_populates="rider")
     claims = relationship("Claim", back_populates="rider")
 

@@ -30,7 +30,8 @@ class RiderCreate(RiderBase):
 
 class Rider(RiderBase):
     id: int
-    
+    pending_zone_id: Optional[int] = None
+
     class Config:
         from_attributes = True
 
@@ -50,6 +51,10 @@ class Policy(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Zone Change ---
+class ZoneChangeRequest(BaseModel):
+    zone_id: int
 
 # --- Claims ---
 class ClaimCreate(BaseModel):
