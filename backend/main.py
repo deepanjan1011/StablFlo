@@ -13,6 +13,7 @@ from services.weather import get_current_weather
 from services.aqi import get_current_aqi
 from services.payments import initiate_payout
 from ml.estimators import calculate_risk_premium, estimate_income_loss
+from ml.fraud_detector import is_fraudulent
 
 Base.metadata.create_all(bind=engine)
 
@@ -63,7 +64,27 @@ async def trigger_monitoring_loop():
                         if active_policy:
                             estimated_loss = estimate_income_loss(1000, trigger_event, severity)
                             payout_amount = min(estimated_loss, active_policy.max_coverage)
-                            
+
+                            # Fraud detection
+                            days_since_start = (datetime.utcnow() - active_policy.start_date).days
+                            hour_now = datetime.utcnow().hour
+                            recent_claims_count = db.query(models.Claim).filter(
+                                models.Claim.rider_id == rider.id,
+                                models.Claim.timestamp >= datetime.utcnow() - timedelta(hours=24)
+                            ).count()
+
+                            if is_fraudulent(payout_amount, severity, hour_now, days_since_start, recent_claims_count):
+                                print(f"[FRAUD] Anomalous claim flagged for rider {rider.id} — skipping payout")
+                                flagged_claim = models.Claim(
+                                    rider_id=rider.id,
+                                    trigger_type=trigger_event,
+                                    amount=payout_amount,
+                                    status="flagged",
+                                )
+                                db.add(flagged_claim)
+                                db.commit()
+                                continue
+
                             new_claim = models.Claim(
                                 rider_id=rider.id,
                                 trigger_type=trigger_event,
@@ -73,9 +94,9 @@ async def trigger_monitoring_loop():
                             db.add(new_claim)
                             db.commit()
                             db.refresh(new_claim)
-                            
+
                             initiate_payout(rider.upi_id, payout_amount, new_claim.id)
-                            
+
                             new_claim.status = "paid"
                             db.commit()
 
