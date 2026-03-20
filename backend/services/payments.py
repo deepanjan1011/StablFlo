@@ -8,20 +8,27 @@ import os
 import requests
 from requests.auth import HTTPBasicAuth
 
-_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
-_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
-_ACCOUNT_NUMBER = os.getenv("RAZORPAY_ACCOUNT_NUMBER", "")
 _BASE = "https://api.razorpay.com/v1"
-
 _PLACEHOLDER_KEYS = {"", "rzp_test_testkey", "secret"}
 
 
+def _credentials() -> tuple[str, str, str]:
+    """Read credentials live so env var changes at runtime take effect."""
+    return (
+        os.getenv("RAZORPAY_KEY_ID", ""),
+        os.getenv("RAZORPAY_KEY_SECRET", ""),
+        os.getenv("RAZORPAY_ACCOUNT_NUMBER", ""),
+    )
+
+
 def _is_placeholder() -> bool:
-    return _KEY_ID in _PLACEHOLDER_KEYS or _KEY_SECRET in _PLACEHOLDER_KEYS
+    key_id, key_secret, _ = _credentials()
+    return key_id in _PLACEHOLDER_KEYS or key_secret in _PLACEHOLDER_KEYS
 
 
 def _auth() -> HTTPBasicAuth:
-    return HTTPBasicAuth(_KEY_ID, _KEY_SECRET)
+    key_id, key_secret, _ = _credentials()
+    return HTTPBasicAuth(key_id, key_secret)
 
 
 def _create_contact(upi_id: str, claim_id: int) -> str | None:
@@ -76,8 +83,13 @@ def initiate_payout(rider_upi: str, amount: int, claim_id: int) -> dict:
     if not fund_account_id:
         return {"status": "failed", "error": "fund_account_creation_failed"}
 
+    _, _, account_number = _credentials()
+    if not account_number:
+        print(f"[PAYOUT] FAILED — RAZORPAY_ACCOUNT_NUMBER not configured")
+        return {"status": "failed", "error": "account_number_not_configured"}
+
     payload = {
-        "account_number": _ACCOUNT_NUMBER,
+        "account_number": account_number,
         "fund_account_id": fund_account_id,
         "amount": amount * 100,           # paise
         "currency": "INR",
@@ -95,7 +107,10 @@ def initiate_payout(rider_upi: str, amount: int, claim_id: int) -> dict:
         print(f"[PAYOUT] SUCCESS — ₹{amount} to {rider_upi}, txn: {txn_id}")
         return {"status": "success", "transaction_id": txn_id}
     except requests.HTTPError as e:
-        error_body = e.response.json() if e.response else {}
+        try:
+            error_body = e.response.json() if e.response else {}
+        except Exception:
+            error_body = {"raw": e.response.text if e.response else ""}
         print(f"[PAYOUT] FAILED — {error_body}")
         return {"status": "failed", "error": str(error_body)}
     except Exception as e:
