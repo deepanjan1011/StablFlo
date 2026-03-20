@@ -94,69 +94,99 @@ export default function Home() {
 
   if (step === 0) {
     const sZone = zones.find(z => z.id.toString() === zoneId);
-    
+
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black relative overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
-        
-        <div className="z-10 w-full max-w-md glass-card p-8 rounded-3xl">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Stabl<span className="text-primary">Flo</span></h1>
-            <p className="text-zinc-400 text-sm">Parametric Insurance for Delivery Riders</p>
+      <main
+        className="flex min-h-screen flex-col items-center justify-center p-6"
+        style={{ background: "#080808" }}
+      >
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="mb-10">
+            <h1 className="font-black text-white" style={{ fontSize: 30, letterSpacing: "-1px" }}>
+              Stabl<span style={{ color: "#16a34a" }}>Flo</span>
+            </h1>
+            <p className="text-xs mt-1 font-semibold" style={{ color: "#555", letterSpacing: "2px" }}>
+              PARAMETRIC INSURANCE · DELIVERY RIDERS
+            </p>
           </div>
-          
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Mobile Number</label>
+
+          {/* Phone input */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>MOBILE NUMBER</p>
+            <div
+              className="flex items-center rounded-xl overflow-hidden"
+              style={{ background: "#111", border: "1px solid #1f1f1f" }}
+            >
+              <span
+                className="px-4 py-3.5 text-sm font-semibold flex-shrink-0"
+                style={{ color: "#444", borderRight: "1px solid #1f1f1f" }}
+              >
+                +91
+              </span>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => { setPhone(e.target.value); setFormError(null); }}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                placeholder="+91 98765 43210"
+                className="flex-1 bg-transparent px-4 py-3.5 text-white text-sm focus:outline-none"
+                placeholder="98765 43210"
               />
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Delivery Zone</label>
-              <select 
+          </div>
+
+          {/* Zone select */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>DELIVERY ZONE</p>
+            <div className="relative">
+              <select
                 value={zoneId}
                 onChange={(e) => setZoneId(e.target.value)}
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                className="w-full appearance-none rounded-xl px-4 py-3.5 text-white text-sm focus:outline-none"
+                style={{ background: "#111", border: "1px solid #1f1f1f" }}
               >
                 {zones.length === 0 && <option value="">Loading zones...</option>}
                 {zones.map(z => (
-                  <option key={z.id} value={z.id}>{z.name}</option>
+                  <option key={z.id} value={z.id} style={{ background: "#111" }}>{z.name}</option>
                 ))}
               </select>
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: "#555" }}>▾</span>
             </div>
-            
-            {sZone && (
-              <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mt-2">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-zinc-300 text-sm font-medium">Est. Base Premium</span>
-                  <span className="text-primary font-bold text-lg">₹{sZone.base_premium} / wk</span>
-                </div>
-                <p className="text-zinc-500 text-xs text-right">Final premium scales with AI forecast</p>
-              </div>
-            )}
-
-            {formError && (
-              <div className="flex items-start gap-2.5 bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
-                <span className="text-red-400 text-sm flex-shrink-0 mt-px">⚠</span>
-                <p className="text-red-400 text-sm leading-snug">{formError}</p>
-              </div>
-            )}
-
-            <button
-              onClick={handleSubscribe}
-              disabled={loading || zones.length === 0 || !phone}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl py-4 transition-all active:scale-[0.98] shadow-[0_0_20px_rgba(22,163,74,0.3)] mt-4 disabled:opacity-50 disabled:active:scale-100"
-            >
-              {loading ? "Processing..." : "Subscribe via UPI Autopay"}
-            </button>
           </div>
+
+          {/* Premium preview */}
+          {sZone && (
+            <div
+              className="rounded-xl px-4 py-3.5 mb-4 flex justify-between items-center"
+              style={{ background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.2)" }}
+            >
+              <div>
+                <p className="text-xs font-semibold" style={{ color: "#16a34a", letterSpacing: "2px" }}>EST. WEEKLY PREMIUM</p>
+                <p className="text-xs mt-0.5" style={{ color: "#555" }}>Scales with AI risk forecast</p>
+              </div>
+              <p className="font-black text-2xl" style={{ color: "#16a34a" }}>₹{sZone.base_premium}</p>
+            </div>
+          )}
+
+          {/* Error banner */}
+          {formError && (
+            <div
+              className="flex items-start gap-2.5 rounded-xl px-4 py-3 mb-4"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              <span className="text-sm flex-shrink-0 mt-px" style={{ color: "#ef4444" }}>⚠</span>
+              <p className="text-sm leading-snug" style={{ color: "#ef4444" }}>{formError}</p>
+            </div>
+          )}
+
+          {/* CTA */}
+          <button
+            onClick={handleSubscribe}
+            disabled={loading || zones.length === 0 || !phone}
+            className="w-full rounded-xl py-4 font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+            style={{ background: "#16a34a", letterSpacing: "0.3px" }}
+          >
+            {loading ? "Processing..." : "Subscribe via UPI Autopay"}
+          </button>
         </div>
       </main>
     );
