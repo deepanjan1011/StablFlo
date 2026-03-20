@@ -5,6 +5,11 @@ import { fetchZones, createRider, createPolicy, fetchClaims, fetchPolicies } fro
 import { PoliciesView } from "@/lib/PoliciesView";
 import { ProfileDrawer } from "@/lib/ProfileDrawer";
 import { SettingsView } from "@/lib/SettingsView";
+import dynamic from "next/dynamic";
+const DevPanel = dynamic(
+  () => import("@/lib/DevPanel").then(m => ({ default: m.DevPanel })),
+  { ssr: false }
+);
 
 type Zone = { id: number; name: string; city: string; base_premium: number; status: string };
 type Policy = { id: number; max_coverage: number; premium_paid: number; start_date: string; end_date: string; is_active: boolean };
@@ -31,6 +36,7 @@ export default function Home() {
   const [zoneId, setZoneId] = useState<string>("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
   function getMonogram(phoneStr: string): string {
     const digits = phoneStr.replace(/\D/g, "").slice(-10);
@@ -46,7 +52,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (step === 1 && riderId) {
+    if (step === 1 && riderId && !devMode) {
       const loadDashboard = async () => {
         try {
           const fetchedPolicies = await fetchPolicies(riderId);
@@ -65,7 +71,7 @@ export default function Home() {
       const interval = setInterval(loadDashboard, 3000); // 3 seconds poll
       return () => clearInterval(interval);
     }
-  }, [step, riderId]);
+  }, [step, riderId, devMode]);
 
   const handleSubscribe = async () => {
     setFormError(null);
@@ -100,6 +106,44 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  function handleSkipOnboarding(zone: Zone) {
+    setDevMode(true);
+    setPhone("9876543210");
+    setRiderId(1);
+    setSelectedZone(zone);
+    setActivePolicy({
+      id: 1,
+      max_coverage: 32000,
+      premium_paid: 799,
+      start_date: new Date(Date.now() - 7 * 86400000).toISOString(),
+      end_date: new Date(Date.now() + 7 * 86400000).toISOString(),
+      is_active: true,
+    });
+    setClaims([]);
+    setAllPolicies([]);
+    setStep(1);
+  }
+
+  function handleInjectClaim(claim: Claim) {
+    setClaims(prev => [claim, ...prev]);
+  }
+
+  function handleSetCoverage(amount: number) {
+    setActivePolicy(prev => prev ? { ...prev, max_coverage: amount } : prev);
+  }
+
+  function handleReset() {
+    setDevMode(false);
+    setStep(0);
+    setRiderId(null);
+    setActivePolicy(null);
+    setAllPolicies([]);
+    setClaims([]);
+    setSelectedZone(null);
+    setPhone("");
+    setIsProfileOpen(false);
+  }
 
   if (step === 0) {
     const sZone = zones.find(z => z.id.toString() === zoneId);
@@ -217,6 +261,18 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col relative overflow-hidden" style={{ background: "#080808" }}>
+      {/* Dev panel — development only */}
+      {process.env.NODE_ENV === "development" && (
+        <DevPanel
+          zones={zones}
+          activePolicy={activePolicy}
+          onSkipOnboarding={handleSkipOnboarding}
+          onInjectClaim={handleInjectClaim}
+          onSetCoverage={handleSetCoverage}
+          onReset={handleReset}
+        />
+      )}
+
       {/* Profile drawer */}
       <ProfileDrawer
         isOpen={isProfileOpen}
