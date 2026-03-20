@@ -96,16 +96,18 @@ export function ProfileDrawer({ isOpen, onClose, phone, upiId, zone, activePolic
               {zone?.name ?? "—"}
             </p>
           </div>
-          <span
-            className="flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full"
-            style={{
-              background: "rgba(22,163,74,0.12)",
-              border: "1px solid rgba(22,163,74,0.3)",
-              color: "#16a34a",
-            }}
-          >
-            ACTIVE
-          </span>
+          {activePolicy?.is_active && (
+            <span
+              className="flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full"
+              style={{
+                background: "rgba(22,163,74,0.12)",
+                border: "1px solid rgba(22,163,74,0.3)",
+                color: "#16a34a",
+              }}
+            >
+              ACTIVE
+            </span>
+          )}
         </div>
 
         {/* Stats grid */}
