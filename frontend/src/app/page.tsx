@@ -521,7 +521,7 @@ export default function Home() {
         )}
 
         {activeTab === "settings" && (
-          <SettingsView riderId={riderId ?? 0} />
+          <SettingsView riderId={riderId ?? 0} onLogout={handleReset} />
         )}
       </div>
 

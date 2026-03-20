@@ -4,13 +4,14 @@ import { useState, type ReactNode } from "react";
 
 interface SettingsViewProps {
   riderId: number;
+  onLogout: () => void;
 }
 
 const LANGUAGES = ["English", "Hindi", "Kannada", "Telugu"];
 
 type Dialog = "cancel-policy" | "delete-account" | null;
 
-export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
+export function SettingsView({ riderId: _riderId, onLogout }: SettingsViewProps) {
   const [upiId, setUpiId] = useState("");
   const [editingUpi, setEditingUpi] = useState(false);
   const [upiDraft, setUpiDraft] = useState("");
@@ -187,6 +188,17 @@ export function SettingsView({ riderId: _riderId }: SettingsViewProps) {
             </div>
           </div>
         )}
+      </SettingsCard>
+
+      {/* GROUP: Account */}
+      <SectionLabel>Account</SectionLabel>
+      <SettingsCard className="mb-4">
+        <SettingsRow
+          icon="🚪"
+          iconBg="rgba(107,114,128,0.1)"
+          title="Log Out"
+          right={<span style={{ color: "#555", fontSize: 13 }} onClick={onLogout} role="button" tabIndex={0}>→</span>}
+        />
       </SettingsCard>
 
       {/* GROUP: Danger Zone */}
