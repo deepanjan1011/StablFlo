@@ -20,10 +20,22 @@ export function DevPanel({ zones, activePolicy, onSkipOnboarding, onInjectClaim,
   const [coverage, setCoverage] = useState(activePolicy?.max_coverage ?? 32000);
 
   useEffect(() => {
-    if (isPanelOpen) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
+    if (isPanelOpen) {
+      document.body.style.overflow = "hidden";
+      const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsPanelOpen(false); };
+      document.addEventListener("keydown", onKey);
+      return () => { document.body.style.overflow = ""; document.removeEventListener("keydown", onKey); };
+    } else {
+      document.body.style.overflow = "";
+    }
     return () => { document.body.style.overflow = ""; };
   }, [isPanelOpen]);
+
+  useEffect(() => {
+    if (activePolicy?.max_coverage !== undefined) {
+      setCoverage(activePolicy.max_coverage);
+    }
+  }, [activePolicy?.max_coverage]);
 
   function adjustCoverage(delta: number) {
     const next = Math.min(100000, Math.max(5000, coverage + delta));
