@@ -82,7 +82,7 @@ export function ProfileDrawer({ isOpen, onClose, phone, upiId, zone, activePolic
               borderRadius: "50%",
               background: "linear-gradient(135deg, #16a34a, #15803d)",
               fontSize: 20,
-              boxShadow: "0 0 0 3px rgba(22,163,74,0.25)",
+              boxShadow: "0 0 0 3px #16a34a",
             }}
           >
             {monogram}
