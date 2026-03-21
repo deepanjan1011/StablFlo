@@ -70,7 +70,7 @@ export async function fetchClaims(riderId: number) {
     cache: "no-store",
     headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
   });
-  if (!res.ok) throw new Error("Failed to fetch claims");
+  if (!res.ok) throw new Error(`Failed to fetch claims (${res.status})`);
   return res.json();
 }
 
@@ -79,7 +79,7 @@ export async function fetchPolicies(riderId: number) {
     cache: "no-store",
     headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
   });
-  if (!res.ok) throw new Error("Failed to fetch policies");
+  if (!res.ok) throw new Error(`Failed to fetch policies (${res.status})`);
   return res.json();
 }
 

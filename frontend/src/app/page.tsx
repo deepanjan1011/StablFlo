@@ -162,6 +162,9 @@ export default function Home() {
   const handleVerifyOtp = async () => {
     if (!confirmationResult || otpCode.length !== 6) return;
     setFormError(null);
+    // Clear stale session before OTP confirm — prevents onAuthStateChanged from
+    // advancing to step 1 (bypassing Razorpay) if a rider ID exists from a prior session.
+    localStorage.removeItem('stablflo_rider_id');
     setLoading(true);
     try {
       await confirmationResult.confirm(otpCode);
