@@ -160,6 +160,28 @@ def create_subscription(amount_paise: int, plan_name: str) -> dict:
     subscription = client.subscription.create(sub_data)
     return {"subscription_id": subscription["id"], "plan_id": plan_id}
 
+def charge_subscription(subscription_id: str, amount_paise: int, reference: str) -> dict:
+    """
+    Charge a rider's existing Razorpay subscription mandate for renewal.
+    In test / placeholder mode this is fully simulated — no real charge occurs.
+    """
+    if _is_placeholder() or not subscription_id:
+        print(f"[RENEWAL] SIMULATED charge — ₹{amount_paise // 100} for sub {subscription_id} ref={reference}")
+        return {"status": "simulated", "reference": reference}
+
+    client = _get_razorpay_client()
+    if not client:
+        return {"status": "failed", "error": "razorpay_client_unavailable"}
+
+    try:
+        result = client.subscription.pending_update(subscription_id, {"quantity": 1})
+        print(f"[RENEWAL] SUCCESS — sub {subscription_id}, ref={reference}")
+        return {"status": "success", "result": result}
+    except Exception as e:
+        print(f"[RENEWAL] CHARGE FAILED — {e}")
+        return {"status": "failed", "error": str(e)}
+
+
 def verify_subscription_signature(payment_id: str, subscription_id: str, signature: str) -> bool:
     """Verifies the Razorpay mandate creation signature."""
     if _is_placeholder():

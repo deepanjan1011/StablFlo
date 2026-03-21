@@ -11,7 +11,7 @@ from db import models
 import schemas
 from services.weather import get_current_weather
 from services.aqi import get_current_aqi
-from services.payments import initiate_payout
+from services.payments import initiate_payout, charge_subscription
 from ml.estimators import calculate_risk_premium, estimate_income_loss
 from ml.fraud_detector import is_fraudulent
 
@@ -128,11 +128,95 @@ async def trigger_monitoring_loop():
         # Test frequency: 15 seconds instead of real 15 min
         await asyncio.sleep(15)
 
+async def renewal_job():
+    """
+    Daily background job: scans for all active policies whose end_date has
+    passed, deactivates them, recalculates next week's dynamic premium,
+    charges the rider's Razorpay mandate, and creates a fresh 7-day policy.
+
+    Runs every 60 seconds in development so you can test without waiting a week.
+    In production, swap asyncio.sleep(60) → asyncio.sleep(86400).
+    """
+    while True:
+        try:
+            now = datetime.utcnow()
+            print(f"[RENEWAL] Scanning for expired policies at {now.isoformat()}Z...")
+            db = SessionLocal()
+
+            expiring_policies = db.query(models.Policy).filter(
+                models.Policy.is_active == True,
+                models.Policy.end_date <= now
+            ).all()
+
+            if not expiring_policies:
+                print("[RENEWAL] No expiring policies found.")
+            
+            for policy in expiring_policies:
+                rider = db.query(models.Rider).filter(models.Rider.id == policy.rider_id).first()
+                if not rider:
+                    continue
+
+                # --- Deactivate old policy ---
+                policy.is_active = False
+                db.add(policy)
+                print(f"[RENEWAL] Expired policy #{policy.id} for rider #{rider.id}")
+
+                # --- Apply pending zone change at billing cycle boundary ---
+                if rider.pending_zone_id:
+                    rider.zone_id = rider.pending_zone_id
+                    rider.pending_zone_id = None
+                    db.add(rider)
+                    print(f"[RENEWAL] Zone change applied for rider #{rider.id} → zone #{rider.zone_id}")
+
+                zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+                if not zone:
+                    continue
+
+                # --- Recalculate next week's premium dynamically ---
+                weather = get_current_weather(zone.city)
+                aqi = get_current_aqi(zone.city)
+                personalized_max_coverage = rider.average_daily_income * 3
+                personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
+                new_premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
+
+                print(f"[RENEWAL] Rider #{rider.id}: new premium=₹{new_premium}, max_coverage=₹{personalized_max_coverage}")
+
+                # --- Charge rider's Razorpay mandate ---
+                charge_result = charge_subscription(
+                    rider.subscription_id,
+                    new_premium * 100,  # paise
+                    f"renewal_policy_{policy.id}_rider_{rider.id}"
+                )
+                print(f"[RENEWAL] Charge result: {charge_result}")
+
+                # --- Create new 7-day policy ---
+                new_policy = models.Policy(
+                    rider_id=rider.id,
+                    start_date=now,
+                    end_date=now + timedelta(days=7),
+                    premium_paid=new_premium,
+                    max_coverage=personalized_max_coverage,
+                    subscription_id=rider.subscription_id,
+                    is_active=True
+                )
+                db.add(new_policy)
+                print(f"[RENEWAL] New policy created for rider #{rider.id}, valid until {new_policy.end_date.isoformat()}Z")
+
+            db.commit()
+            db.close()
+        except Exception as e:
+            print(f"[RENEWAL ERROR] {e}")
+        
+        # Dev: check every 60 seconds. Prod: 86400 (daily)
+        await asyncio.sleep(60)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(trigger_monitoring_loop())
+    monitor_task = asyncio.create_task(trigger_monitoring_loop())
+    renewal_task = asyncio.create_task(renewal_job())
     yield
-    task.cancel()
+    monitor_task.cancel()
+    renewal_task.cancel()
 
 app = FastAPI(title="StablFlo API", lifespan=lifespan)
 
@@ -310,12 +394,17 @@ def verify_subscription_endpoint(data: schemas.SubscriptionVerify, db: Session =
     for existing in existings:
         existing.is_active = False
 
+    # Save subscription_id on the rider for future auto-renewals
+    rider.subscription_id = data.razorpay_subscription_id
+    db.add(rider)
+
     db_policy = models.Policy(
         rider_id=rider.id,
         start_date=datetime.utcnow(),
         end_date=datetime.utcnow() + timedelta(days=7),
         premium_paid=premium,
         max_coverage=personalized_max_coverage,
+        subscription_id=data.razorpay_subscription_id,
         is_active=True
     )
     db.add(db_policy)
@@ -368,3 +457,75 @@ def simulate_event(rider_id: int, trigger_event: str, severity: float, db: Sessi
     db.commit()
     db.refresh(new_claim)
     return new_claim
+
+@app.post("/admin/simulate_renewal/{rider_id}")
+def simulate_renewal(rider_id: int, db: Session = Depends(get_db)):
+    """
+    God mode: immediately expires the rider's active policy and runs the
+    weekly renewal pipeline (premium recalc + mandate charge + new policy).
+    Use this to test auto-renewal without waiting 7 days.
+    """
+    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+
+    active_policy = db.query(models.Policy).filter(
+        models.Policy.rider_id == rider.id,
+        models.Policy.is_active == True
+    ).order_by(models.Policy.id.desc()).first()
+    if not active_policy:
+        raise HTTPException(status_code=400, detail="No active policy found")
+
+    # Force-expire the current policy
+    active_policy.is_active = False
+    active_policy.end_date = datetime.utcnow() - timedelta(seconds=1)
+    db.add(active_policy)
+
+    # Apply pending zone change if any
+    if rider.pending_zone_id:
+        rider.zone_id = rider.pending_zone_id
+        rider.pending_zone_id = None
+        db.add(rider)
+
+    zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
+    # Recalculate next week's premium dynamically
+    weather = get_current_weather(zone.city)
+    aqi = get_current_aqi(zone.city)
+    personalized_max_coverage = rider.average_daily_income * 3
+    personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
+    new_premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
+
+    # Charge the mandate (simulated in dev)
+    charge_result = charge_subscription(
+        rider.subscription_id,
+        new_premium * 100,
+        f"renewal_policy_{active_policy.id}_rider_{rider.id}"
+    )
+
+    # Create new 7-day policy
+    now = datetime.utcnow()
+    new_policy = models.Policy(
+        rider_id=rider.id,
+        start_date=now,
+        end_date=now + timedelta(days=7),
+        premium_paid=new_premium,
+        max_coverage=personalized_max_coverage,
+        subscription_id=rider.subscription_id,
+        is_active=True
+    )
+    db.add(new_policy)
+    db.commit()
+    db.refresh(new_policy)
+
+    return {
+        "renewed": True,
+        "expired_policy_id": active_policy.id,
+        "new_policy_id": new_policy.id,
+        "new_premium": new_premium,
+        "max_coverage": personalized_max_coverage,
+        "new_end_date": new_policy.end_date.isoformat() + "Z",
+        "charge_result": charge_result
+    }

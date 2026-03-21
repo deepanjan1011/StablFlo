@@ -25,6 +25,7 @@ class Rider(Base):
     upi_id = Column(String)
     pending_zone_id = Column(Integer, ForeignKey("zones.id"), nullable=True)
     average_daily_income = Column(Integer, default=900)
+    subscription_id = Column(String, nullable=True)  # Razorpay subscription ID for mandate charges
 
     zone = relationship("Zone", back_populates="riders", foreign_keys=[zone_id])
     policies = relationship("Policy", back_populates="rider")
@@ -41,6 +42,7 @@ class Policy(Base):
     premium_paid = Column(Integer)
     max_coverage = Column(Integer)
     is_active = Column(Boolean, default=True)
+    subscription_id = Column(String, nullable=True)  # Razorpay subscription ID used for this term
 
     rider = relationship("Rider", back_populates="policies")
 

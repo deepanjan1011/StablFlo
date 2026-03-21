@@ -32,6 +32,7 @@ class RiderCreate(RiderBase):
 class Rider(RiderBase):
     id: int
     pending_zone_id: Optional[int] = None
+    subscription_id: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -49,6 +50,7 @@ class Policy(BaseModel):
     premium_paid: int
     max_coverage: int
     is_active: bool
+    subscription_id: Optional[str] = None
 
     class Config:
         from_attributes = True
