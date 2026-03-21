@@ -353,7 +353,11 @@ def request_zone_change(
     return rider
 
 @app.post("/policies/", response_model=schemas.Policy)
-def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
+def create_policy(
+    policy: schemas.PolicyCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key)
+):
     rider = db.query(models.Rider).filter(models.Rider.id == policy.rider_id).first()
     if not rider:
         raise HTTPException(status_code=404, detail="Rider not found")

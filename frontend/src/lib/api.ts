@@ -5,9 +5,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const { auth } = await import("./firebase");
-  // getIdToken() returns cached token; SDK auto-refreshes before 1hr expiry
-  const token = await auth.currentUser?.getIdToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+  const token = await user.getIdToken();
+  return { Authorization: `Bearer ${token}` };
 }
 
 async function getAdminHeaders(): Promise<HeadersInit> {

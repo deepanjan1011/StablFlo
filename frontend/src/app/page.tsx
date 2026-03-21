@@ -62,8 +62,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
     import("@/lib/firebase").then(({ auth }) => {
-      auth.onAuthStateChanged((user: any) => {
+      unsubscribe = auth.onAuthStateChanged((user: any) => {
         const savedRiderId = localStorage.getItem('stablflo_rider_id');
         if (user && savedRiderId) {
           setRiderId(parseInt(savedRiderId, 10));
@@ -72,6 +73,7 @@ export default function Home() {
         }
       });
     });
+    return () => { unsubscribe?.(); };
   }, []);
 
   useEffect(() => {
@@ -163,6 +165,13 @@ export default function Home() {
     setLoading(true);
     try {
       await confirmationResult.confirm(otpCode);
+
+      // Clear verifier after successful OTP confirm
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+
       const digits = phone.replace(/\D/g, "");
       const normalized = digits.startsWith("91") && digits.length === 12 ? digits.slice(2) : digits;
 
@@ -187,8 +196,10 @@ export default function Home() {
             localStorage.setItem('stablflo_rider_id', rider.id.toString());
             const zone = zones.find(z => z.id.toString() === zoneId);
             if (zone) setSelectedZone(zone);
+            setLoading(false);
             setStep(1);
           } catch (e) {
+            setLoading(false);
             setFormError("Verification failed.");
           }
         },
@@ -198,11 +209,15 @@ export default function Home() {
 
       const rzp1 = new (window as any).Razorpay(options);
       rzp1.on('payment.failed', function (response: any) {
+        setLoading(false);
         setFormError("Autopay mandate setup failed: " + response.error.description);
       });
       rzp1.open();
+      // Note: loading stays true while Razorpay modal is open.
+      // setLoading(false) is called in handler/payment.failed/catch above.
 
     } catch (e: any) {
+      setLoading(false);
       const code = e?.code;
       if (code === "auth/invalid-verification-code") {
         setFormError("Incorrect code. Try again.");
@@ -212,8 +227,6 @@ export default function Home() {
       } else {
         setFormError("Verification failed. Please try again.");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
