@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { fetchZones, fetchZoneRisk, createRider, createSubscription, verifySubscription, fetchClaims, fetchPolicies, simulateAdminEvent } from "@/lib/api";
+import type { ConfirmationResult, RecaptchaVerifier as RecaptchaVerifierType } from "firebase/auth";
 
 import { PoliciesView } from "@/lib/PoliciesView";
 import { ProfileDrawer } from "@/lib/ProfileDrawer";
@@ -18,7 +19,7 @@ type Claim = { id: number; trigger_type: string; amount: number; timestamp: stri
 type Tab = "home" | "policies" | "settings";
 
 export default function Home() {
-  const [step, setStep] = useState(0); // 0: Onboarding, 1: Dashboard
+  const [step, setStep] = useState<0 | "otp" | 1>(0); // 0: Onboarding, 1: Dashboard
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
 
@@ -42,6 +43,10 @@ export default function Home() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const recaptchaVerifierRef = useRef<RecaptchaVerifierType | null>(null);
 
   function getMonogram(phoneStr: string): string {
     const digits = phoneStr.replace(/\D/g, "").slice(-10);
@@ -73,6 +78,12 @@ export default function Home() {
   }, [zoneId]);
 
   useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
+  useEffect(() => {
     if (step === 1 && riderId && !devMode) {
       const loadDashboard = async () => {
         try {
@@ -94,7 +105,7 @@ export default function Home() {
     }
   }, [step, riderId, devMode]);
 
-  const handleSubscribe = async () => {
+  const handleSendOtp = async () => {
     setFormError(null);
     const digits = phone.replace(/\D/g, "");
     const normalized = digits.startsWith("91") && digits.length === 12 ? digits.slice(2) : digits;
@@ -107,11 +118,50 @@ export default function Home() {
       setFormError("Enter a valid UPI ID (e.g. 9876543210@ybl) for payouts.");
       return;
     }
+    if (!averageDailyIncome) {
+      setFormError("Enter your average daily earnings.");
+      return;
+    }
 
     setLoading(true);
     try {
-      const rider = await createRider(phone, parseInt(zoneId), Number(averageDailyIncome || 900), upiId);
+      const { auth } = await import("@/lib/firebase");
+      const { signInWithPhoneNumber, RecaptchaVerifier } = await import("firebase/auth");
 
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+
+      const verifier = new RecaptchaVerifier(auth, "send-otp-btn", { size: "invisible" });
+      recaptchaVerifierRef.current = verifier;
+
+      const result = await signInWithPhoneNumber(auth, `+91${normalized}`, verifier);
+      setConfirmationResult(result);
+      setStep("otp");
+      setResendCooldown(30);
+    } catch (e) {
+      console.error(e);
+      setFormError("Failed to send OTP. Check your number and try again.");
+      if (recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current.clear();
+        recaptchaVerifierRef.current = null;
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!confirmationResult || otpCode.length !== 6) return;
+    setFormError(null);
+    setLoading(true);
+    try {
+      await confirmationResult.confirm(otpCode);
+      const digits = phone.replace(/\D/g, "");
+      const normalized = digits.startsWith("91") && digits.length === 12 ? digits.slice(2) : digits;
+
+      const rider = await createRider(normalized, parseInt(zoneId), Number(averageDailyIncome || 900), upiId);
       const subRes = await createSubscription(rider.id);
 
       const options = {
@@ -122,48 +172,55 @@ export default function Home() {
         handler: async function (response: any) {
           try {
             const policy = await verifySubscription({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_subscription_id: response.razorpay_subscription_id,
-                razorpay_signature: response.razorpay_signature,
-                rider_id: rider.id
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_subscription_id: response.razorpay_subscription_id,
+              razorpay_signature: response.razorpay_signature,
+              rider_id: rider.id
             });
             setActivePolicy(policy);
-            
             setRiderId(rider.id);
             localStorage.setItem('stablflo_rider_id', rider.id.toString());
-            localStorage.setItem('stablflo_phone', phone);
             const zone = zones.find(z => z.id.toString() === zoneId);
             if (zone) setSelectedZone(zone);
             setStep(1);
           } catch (e) {
-             setFormError("Verification failed.");
+            setFormError("Verification failed.");
           }
         },
-        prefill: {
-          contact: phone,
-        },
-        theme: {
-          color: "#16a34a"
-        }
+        prefill: { contact: normalized },
+        theme: { color: "#16a34a" }
       };
-      
+
       const rzp1 = new (window as any).Razorpay(options);
-      rzp1.on('payment.failed', function (response: any){
-         setFormError("Autopay mandate setup failed: " + response.error.description);
+      rzp1.on('payment.failed', function (response: any) {
+        setFormError("Autopay mandate setup failed: " + response.error.description);
       });
       rzp1.open();
 
-    } catch (e) {
-      console.error(e);
-      const isNetwork = e instanceof TypeError;
-      setFormError(
-        isNetwork
-          ? "Cannot reach the server. Make sure the backend is running on port 8000."
-          : "Something went wrong. Please try again."
-      );
+    } catch (e: any) {
+      const code = e?.code;
+      if (code === "auth/invalid-verification-code") {
+        setFormError("Incorrect code. Try again.");
+      } else if (code === "auth/code-expired") {
+        setFormError("Code expired. Request a new one.");
+        setResendCooldown(0);
+      } else {
+        setFormError("Verification failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackFromOtp = () => {
+    if (recaptchaVerifierRef.current) {
+      recaptchaVerifierRef.current.clear();
+      recaptchaVerifierRef.current = null;
+    }
+    setConfirmationResult(null);
+    setOtpCode("");
+    setFormError(null);
+    setStep(0);
   };
 
 
@@ -215,6 +272,109 @@ export default function Home() {
     setSelectedZone(null);
     setPhone("");
     setIsProfileOpen(false);
+  }
+
+  if (step === "otp") {
+    return (
+      <main
+        className="flex min-h-screen flex-col items-center justify-center p-6"
+        style={{ background: "#080808" }}
+      >
+        <div className="w-full max-w-sm">
+          <button
+            onClick={handleBackFromOtp}
+            className="flex items-center gap-2 mb-8 text-sm font-semibold"
+            style={{ color: "#555" }}
+          >
+            ← Back
+          </button>
+
+          <div className="mb-10">
+            <h1 className="font-black text-white" style={{ fontSize: 30, letterSpacing: "-1px" }}>
+              Verify<span style={{ color: "#16a34a" }}>Phone</span>
+            </h1>
+            <p className="text-xs mt-1 font-semibold" style={{ color: "#555", letterSpacing: "2px" }}>
+              OTP SENT TO +91 {phone.replace(/\D/g, "").slice(-10)}
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>6-DIGIT CODE</p>
+            <div
+              className="flex items-center rounded-xl overflow-hidden"
+              style={{ background: "#111", border: "1px solid #1f1f1f" }}
+            >
+              <input
+                type="tel"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, "")); setFormError(null); }}
+                className="flex-1 bg-transparent px-4 py-3.5 text-white text-sm focus:outline-none tracking-widest"
+                placeholder="_ _ _ _ _ _"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {formError && (
+            <div
+              className="flex items-start gap-2.5 rounded-xl px-4 py-3 mb-4"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+            >
+              <span className="text-sm flex-shrink-0 mt-px" style={{ color: "#ef4444" }}>⚠</span>
+              <p className="text-sm leading-snug" style={{ color: "#ef4444" }}>{formError}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleVerifyOtp}
+            disabled={loading || otpCode.length !== 6}
+            className="w-full rounded-xl py-4 font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 mb-4"
+            style={{ background: "#16a34a", letterSpacing: "0.3px" }}
+          >
+            {loading ? "Verifying..." : "Verify & Continue"}
+          </button>
+
+          <button
+            id="resend-otp-btn"
+            onClick={async () => {
+              if (resendCooldown > 0) return;
+              setFormError(null);
+              setOtpCode("");
+              setLoading(true);
+              try {
+                const { auth } = await import("@/lib/firebase");
+                const { signInWithPhoneNumber, RecaptchaVerifier } = await import("firebase/auth");
+                if (recaptchaVerifierRef.current) {
+                  recaptchaVerifierRef.current.clear();
+                  recaptchaVerifierRef.current = null;
+                }
+                const verifier = new RecaptchaVerifier(auth, "resend-otp-btn", { size: "invisible" });
+                recaptchaVerifierRef.current = verifier;
+                const digits = phone.replace(/\D/g, "");
+                const normalized = digits.startsWith("91") && digits.length === 12 ? digits.slice(2) : digits;
+                const result = await signInWithPhoneNumber(auth, `+91${normalized}`, verifier);
+                setConfirmationResult(result);
+                setResendCooldown(30);
+              } catch (e) {
+                setFormError("Failed to resend OTP. Please try again.");
+                if (recaptchaVerifierRef.current) {
+                  recaptchaVerifierRef.current.clear();
+                  recaptchaVerifierRef.current = null;
+                }
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={resendCooldown > 0 || loading}
+            className="w-full text-sm font-semibold py-2 transition-colors disabled:opacity-30"
+            style={{ color: "#16a34a" }}
+          >
+            {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
+          </button>
+        </div>
+      </main>
+    );
   }
 
   if (step === 0) {
@@ -351,12 +511,13 @@ export default function Home() {
 
           {/* CTA */}
           <button
-            onClick={handleSubscribe}
+            id="send-otp-btn"
+            onClick={handleSendOtp}
             disabled={loading || zones.length === 0 || !phone || !averageDailyIncome || !upiId}
             className="w-full rounded-xl py-4 font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
             style={{ background: "#16a34a", letterSpacing: "0.3px" }}
           >
-            {loading ? "Processing..." : "Subscribe via UPI Autopay"}
+            {loading ? "Sending OTP..." : "Send OTP"}
           </button>
         </div>
 
