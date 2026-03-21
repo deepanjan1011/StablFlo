@@ -4,6 +4,8 @@ Uses Razorpay X (current account) to initiate UPI payouts.
 In test mode, uses Razorpay's sandbox — no real money moves.
 Falls back to simulation when placeholder credentials are detected.
 """
+from __future__ import annotations
+
 import os
 import requests
 from requests.auth import HTTPBasicAuth
