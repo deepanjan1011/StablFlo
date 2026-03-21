@@ -1,10 +1,13 @@
 import os
 import asyncio
+import json
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
 
 from db.database import engine, get_db, SessionLocal, Base
 from db import models
@@ -16,6 +19,47 @@ from ml.estimators import calculate_risk_premium, estimate_income_loss
 from ml.fraud_detector import is_fraudulent
 
 Base.metadata.create_all(bind=engine)
+
+# --- Firebase Admin initialization ---
+_sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+if not _sa_json:
+    raise RuntimeError("FIREBASE_SERVICE_ACCOUNT env var is missing — backend cannot start")
+try:
+    _cred = credentials.Certificate(json.loads(_sa_json))
+    firebase_admin.initialize_app(_cred)
+except (json.JSONDecodeError, ValueError) as e:
+    raise RuntimeError(f"FIREBASE_SERVICE_ACCOUNT is malformed: {e}")
+
+_ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "")
+
+
+async def get_verified_phone(authorization: str = Header(...)) -> str:
+    try:
+        token = authorization.removeprefix("Bearer ")
+        decoded = firebase_auth.verify_id_token(token)
+        raw_phone = decoded["phone_number"]
+        if not raw_phone.startswith("+91"):
+            raise HTTPException(status_code=400, detail="Only Indian (+91) phone numbers are supported")
+        return raw_phone[3:]  # strip +91 → "9876543210"
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def assert_owns_rider(rider_id: int, verified_phone: str, db: Session):
+    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+    if rider.phone_number != verified_phone:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return rider
+
+
+async def require_admin_key(x_admin_key: str = Header(..., alias="X-Admin-Key")) -> None:
+    if not _ADMIN_SECRET_KEY or x_admin_key != _ADMIN_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+
 
 async def trigger_monitoring_loop():
     while True:
