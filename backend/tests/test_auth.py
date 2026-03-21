@@ -1,11 +1,10 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 
 # We test the auth utilities in isolation — no real Firebase calls needed.
 
-def make_verified_phone_fn():
+def _setup_firebase_mock():
     """Import get_verified_phone after mocking firebase_admin to avoid init errors."""
     import importlib
     import sys
@@ -22,7 +21,7 @@ def make_verified_phone_fn():
     return mock_fa
 
 def test_get_verified_phone_valid_indian_number():
-    mock_fa = make_verified_phone_fn()
+    mock_fa = _setup_firebase_mock()
     mock_fa.auth.verify_id_token.return_value = {"phone_number": "+919876543210"}
     import importlib
     import main as m
@@ -32,7 +31,7 @@ def test_get_verified_phone_valid_indian_number():
     assert result == "9876543210"
 
 def test_get_verified_phone_non_indian_number_raises_400():
-    mock_fa = make_verified_phone_fn()
+    mock_fa = _setup_firebase_mock()
     mock_fa.auth.verify_id_token.return_value = {"phone_number": "+15551234567"}
     import importlib
     import main as m
@@ -43,7 +42,7 @@ def test_get_verified_phone_non_indian_number_raises_400():
     assert exc_info.value.status_code == 400
 
 def test_get_verified_phone_invalid_token_raises_401():
-    mock_fa = make_verified_phone_fn()
+    mock_fa = _setup_firebase_mock()
     mock_fa.auth.verify_id_token.side_effect = Exception("Token expired")
     import importlib
     import main as m
@@ -54,7 +53,7 @@ def test_get_verified_phone_invalid_token_raises_401():
     assert exc_info.value.status_code == 401
 
 def test_assert_owns_rider_matching_phone():
-    mock_fa = make_verified_phone_fn()
+    _setup_firebase_mock()
     import importlib
     import main as m
     importlib.reload(m)
@@ -66,7 +65,7 @@ def test_assert_owns_rider_matching_phone():
     assert result == mock_rider
 
 def test_assert_owns_rider_wrong_phone_raises_403():
-    mock_fa = make_verified_phone_fn()
+    _setup_firebase_mock()
     import importlib
     import main as m
     importlib.reload(m)
@@ -79,7 +78,7 @@ def test_assert_owns_rider_wrong_phone_raises_403():
     assert exc_info.value.status_code == 403
 
 def test_assert_owns_rider_not_found_raises_404():
-    mock_fa = make_verified_phone_fn()
+    _setup_firebase_mock()
     import importlib
     import main as m
     importlib.reload(m)
@@ -88,3 +87,37 @@ def test_assert_owns_rider_not_found_raises_404():
     with pytest.raises(HTTPException) as exc_info:
         m.assert_owns_rider(999, "9876543210", mock_db)
     assert exc_info.value.status_code == 404
+
+def test_require_admin_key_valid():
+    _setup_firebase_mock()
+    import importlib
+    import main as m
+    importlib.reload(m)
+    import asyncio
+    # Should not raise — returns None
+    result = asyncio.run(m.require_admin_key("test-admin-key"))
+    assert result is None
+
+def test_require_admin_key_wrong_key_raises_403():
+    _setup_firebase_mock()
+    import importlib
+    import main as m
+    importlib.reload(m)
+    import asyncio
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(m.require_admin_key("wrong-key"))
+    assert exc_info.value.status_code == 403
+
+def test_require_admin_key_empty_env_raises_403():
+    _setup_firebase_mock()
+    import os
+    import importlib
+    os.environ['ADMIN_SECRET_KEY'] = ''
+    import main as m
+    importlib.reload(m)
+    import asyncio
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(m.require_admin_key("any-key"))
+    assert exc_info.value.status_code == 403
+    # Restore for other tests
+    os.environ['ADMIN_SECRET_KEY'] = 'test-admin-key'

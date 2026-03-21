@@ -35,7 +35,9 @@ _ADMIN_SECRET_KEY = os.environ.get("ADMIN_SECRET_KEY", "")
 
 async def get_verified_phone(authorization: str = Header(...)) -> str:
     try:
-        token = authorization.removeprefix("Bearer ")
+        if not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        token = authorization[7:]
         decoded = firebase_auth.verify_id_token(token)
         raw_phone = decoded["phone_number"]
         if not raw_phone.startswith("+91"):
