@@ -308,7 +308,12 @@ def get_zone_risk(zone_id: int, db: Session = Depends(get_db)):
     return {"multiplier": multiplier}
 
 @app.post("/riders/", response_model=schemas.Rider)
-def create_rider(rider: schemas.RiderCreate, db: Session = Depends(get_db)):
+def create_rider(
+    rider: schemas.RiderCreate,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    rider.phone_number = verified_phone  # override with token-verified phone
     existing = db.query(models.Rider).filter(models.Rider.phone_number == rider.phone_number).first()
     if existing:
         existing.average_daily_income = rider.average_daily_income
@@ -324,17 +329,21 @@ def create_rider(rider: schemas.RiderCreate, db: Session = Depends(get_db)):
     return db_rider
 
 @app.get("/riders/{rider_id}", response_model=schemas.Rider)
-def read_rider(rider_id: int, db: Session = Depends(get_db)):
-    db_rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
-    if db_rider is None:
-        raise HTTPException(status_code=404, detail="Rider not found")
-    return db_rider
+def read_rider(
+    rider_id: int,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    return assert_owns_rider(rider_id, verified_phone, db)
 
 @app.patch("/riders/{rider_id}/zone", response_model=schemas.Rider)
-def request_zone_change(rider_id: int, body: schemas.ZoneChangeRequest, db: Session = Depends(get_db)):
-    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
-    if not rider:
-        raise HTTPException(status_code=404, detail="Rider not found")
+def request_zone_change(
+    rider_id: int,
+    body: schemas.ZoneChangeRequest,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    rider = assert_owns_rider(rider_id, verified_phone, db)
     zone = db.query(models.Zone).filter(models.Zone.id == body.zone_id).first()
     if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
@@ -385,22 +394,18 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
     return db_policy
 
 @app.post("/payment/create-subscription", response_model=schemas.SubscriptionCreateResponse)
-def create_subscription_endpoint(rider_id: int, db: Session = Depends(get_db)):
-    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
-    if not rider:
-        raise HTTPException(status_code=404, detail="Rider not found")
-    
+def create_subscription_endpoint(
+    rider_id: int,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    rider = assert_owns_rider(rider_id, verified_phone, db)
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
-    
-    # AI Dynamic Personalized Coverage (Max 3 days of fully lost income)
     personalized_max_coverage = rider.average_daily_income * 3
-    
-    # Calculate base premium preserving zone risk weight (Chennai 40 base = 4% of 1000)
     personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
     premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
-    
     from services.payments import create_subscription
     try:
         sub_data = create_subscription(premium * 100, f"StablFlo Premium - {zone.name}")
@@ -409,9 +414,12 @@ def create_subscription_endpoint(rider_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/payment/verify-subscription", response_model=schemas.Policy)
-def verify_subscription_endpoint(data: schemas.SubscriptionVerify, db: Session = Depends(get_db)):
+def verify_subscription_endpoint(
+    data: schemas.SubscriptionVerify,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
     from services.payments import verify_subscription_signature
-    
     is_valid = verify_subscription_signature(
         data.razorpay_payment_id,
         data.razorpay_subscription_id,
@@ -419,31 +427,21 @@ def verify_subscription_endpoint(data: schemas.SubscriptionVerify, db: Session =
     )
     if not is_valid:
         raise HTTPException(status_code=400, detail="Invalid signature")
-
-    rider = db.query(models.Rider).filter(models.Rider.id == data.rider_id).first()
-    if not rider:
-        raise HTTPException(status_code=404, detail="Rider not found")
-
+    rider = assert_owns_rider(data.rider_id, verified_phone, db)
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
-    
-    # Re-calculate to safely verify
     personalized_max_coverage = rider.average_daily_income * 3
     personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
     premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
-
     existings = db.query(models.Policy).filter(
         models.Policy.rider_id == rider.id,
         models.Policy.is_active == True
     ).all()
     for existing in existings:
         existing.is_active = False
-
-    # Save subscription_id on the rider for future auto-renewals
     rider.subscription_id = data.razorpay_subscription_id
     db.add(rider)
-
     db_policy = models.Policy(
         rider_id=rider.id,
         start_date=datetime.utcnow(),
@@ -459,15 +457,31 @@ def verify_subscription_endpoint(data: schemas.SubscriptionVerify, db: Session =
     return db_policy
 
 @app.get("/claims/rider/{rider_id}", response_model=list[schemas.Claim])
-def read_claims(rider_id: int, db: Session = Depends(get_db)):
+def read_claims(
+    rider_id: int,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    assert_owns_rider(rider_id, verified_phone, db)
     return db.query(models.Claim).filter(models.Claim.rider_id == rider_id).all()
 
 @app.get("/policies/rider/{rider_id}", response_model=list[schemas.Policy])
-def read_policies(rider_id: int, db: Session = Depends(get_db)):
+def read_policies(
+    rider_id: int,
+    db: Session = Depends(get_db),
+    verified_phone: str = Depends(get_verified_phone)
+):
+    assert_owns_rider(rider_id, verified_phone, db)
     return db.query(models.Policy).filter(models.Policy.rider_id == rider_id).order_by(models.Policy.id.desc()).all()
 
 @app.post("/admin/simulate_event/{rider_id}", response_model=schemas.Claim)
-def simulate_event(rider_id: int, trigger_event: str, severity: float, db: Session = Depends(get_db)):
+def simulate_event(
+    rider_id: int,
+    trigger_event: str,
+    severity: float,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key)
+):
     """God mode endpoint to forcefully trigger an ML payout for a specific rider"""
     rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
     if not rider: raise HTTPException(status_code=404, detail="Rider not found")
@@ -505,7 +519,11 @@ def simulate_event(rider_id: int, trigger_event: str, severity: float, db: Sessi
     return new_claim
 
 @app.post("/admin/simulate_renewal/{rider_id}")
-def simulate_renewal(rider_id: int, db: Session = Depends(get_db)):
+def simulate_renewal(
+    rider_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key)
+):
     """
     God mode: immediately expires the rider's active policy and runs the
     weekly renewal pipeline (premium recalc + mandate charge + new policy).
