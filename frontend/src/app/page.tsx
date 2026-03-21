@@ -59,14 +59,19 @@ export default function Home() {
       setZones(data);
       if (data.length > 0) setZoneId(data[0].id.toString());
     }).catch(err => console.error(err));
+  }, []);
 
-    const savedRiderId = localStorage.getItem('stablflo_rider_id');
-    const savedPhone = localStorage.getItem('stablflo_phone');
-    if (savedRiderId && savedPhone) {
-      setRiderId(parseInt(savedRiderId, 10));
-      setPhone(savedPhone);
-      setStep(1);
-    }
+  useEffect(() => {
+    import("@/lib/firebase").then(({ auth }) => {
+      auth.onAuthStateChanged((user: any) => {
+        const savedRiderId = localStorage.getItem('stablflo_rider_id');
+        if (user && savedRiderId) {
+          setRiderId(parseInt(savedRiderId, 10));
+          setPhone(user.phoneNumber?.replace("+91", "") ?? "");
+          setStep(1);
+        }
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -260,10 +265,15 @@ export default function Home() {
     setActivePolicy(prev => prev ? { ...prev, max_coverage: amount } : prev);
   }
 
-  function handleReset() {
+  async function handleReset() {
+    const { auth } = await import("@/lib/firebase");
+    await auth.signOut();
+    if (recaptchaVerifierRef.current) {
+      recaptchaVerifierRef.current.clear();
+      recaptchaVerifierRef.current = null;
+    }
     setDevMode(false);
     localStorage.removeItem('stablflo_rider_id');
-    localStorage.removeItem('stablflo_phone');
     setStep(0);
     setRiderId(null);
     setActivePolicy(null);
@@ -271,6 +281,8 @@ export default function Home() {
     setClaims([]);
     setSelectedZone(null);
     setPhone("");
+    setOtpCode("");
+    setConfirmationResult(null);
     setIsProfileOpen(false);
   }
 
