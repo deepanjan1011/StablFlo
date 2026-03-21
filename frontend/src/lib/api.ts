@@ -9,7 +9,13 @@ export async function fetchZones() {
   return res.json();
 }
 
-export async function createRider(phoneNumber: string, zoneId: number, averageDailyIncome: number = 900) {
+export async function fetchZoneRisk(zoneId: number) {
+  const res = await fetch(`${API_BASE}/zones/${zoneId}/risk`);
+  if (!res.ok) throw new Error("Failed to fetch risk multiplier");
+  return res.json();
+}
+
+export async function createRider(phoneNumber: string, zoneId: number, averageDailyIncome: number = 900, upiId: string) {
   const res = await fetch(`${API_BASE}/riders/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -17,7 +23,7 @@ export async function createRider(phoneNumber: string, zoneId: number, averageDa
       phone_number: phoneNumber,
       platform_id: `platform_${Date.now()}`,
       zone_id: zoneId,
-      upi_id: `${phoneNumber}@upi`,
+      upi_id: upiId,
       average_daily_income: averageDailyIncome
     })
   });
@@ -25,24 +31,39 @@ export async function createRider(phoneNumber: string, zoneId: number, averageDa
   return res.json();
 }
 
-export async function createPolicy(riderId: number) {
-  const res = await fetch(`${API_BASE}/policies/`, {
+
+export async function createSubscription(riderId: number) {
+  const res = await fetch(`${API_BASE}/payment/create-subscription?rider_id=${riderId}`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error("Failed to create subscription");
+  return res.json();
+}
+
+export async function verifySubscription(data: any) {
+  const res = await fetch(`${API_BASE}/payment/verify-subscription`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ rider_id: riderId, duration_days: 7 })
+    body: JSON.stringify(data)
   });
-  if (!res.ok) throw new Error("Failed to create policy");
+  if (!res.ok) throw new Error("Failed to verify subscription");
   return res.json();
 }
 
 export async function fetchClaims(riderId: number) {
-  const res = await fetch(`${API_BASE}/claims/rider/${riderId}`);
+  const res = await fetch(`${API_BASE}/claims/rider/${riderId}`, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache" }
+  });
   if (!res.ok) throw new Error("Failed to fetch claims");
   return res.json();
 }
 
 export async function fetchPolicies(riderId: number) {
-  const res = await fetch(`${API_BASE}/policies/rider/${riderId}`);
+  const res = await fetch(`${API_BASE}/policies/rider/${riderId}`, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache" }
+  });
   if (!res.ok) throw new Error("Failed to fetch policies");
   return res.json();
 }

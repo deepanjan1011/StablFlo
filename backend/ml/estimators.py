@@ -74,19 +74,20 @@ def calculate_risk_premium(zone_base_premium: int, weather_data: dict, aqi_data:
 
 def estimate_income_loss(rider_avg_daily_income: int, event_type: str, severity: float) -> int:
     """
-    Predicts income loss percentage. Forced to match exact math in README specs.
+    Predicts income loss percentage accurately for the real world.
+    A single event rarely destroys an entire 12-hour shift.
     """
     if event_type == "rain":
-        # 85% loss for severe rain (matches Scenario 1)
-        loss_pct = 0.85 * min(severity, 1.0)
-    elif event_type == "heat":
-        # ~30% loss of daily income for missed peak heat window (matches Scenario 2)
-        loss_pct = 0.30 * min(severity, 1.0)
-    elif event_type == "aqi":
-        # ~25% loss (slowing down, turning off platform earlier)
+        # 25% loss (2-3 hours offline during heavy rainstorm)
         loss_pct = 0.25 * min(severity, 1.0)
+    elif event_type == "heat":
+        # 15% loss (Skipping 1-2 hours during extreme peak afternoon heat)
+        loss_pct = 0.15 * min(severity, 1.0)
+    elif event_type == "aqi":
+        # 10% loss (Slower delivery times, early log-off)
+        loss_pct = 0.10 * min(severity, 1.0)
     else:
-        loss_pct = 0.40 * min(severity, 1.0)
+        loss_pct = 0.15 * min(severity, 1.0)
 
     estimated_loss = int(rider_avg_daily_income * loss_pct)
     return max(100, estimated_loss) # Minimum guaranteed payout floor

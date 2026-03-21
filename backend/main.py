@@ -34,20 +34,20 @@ async def trigger_monitoring_loop():
                 if not weather.get("error"):
                     rain = weather.get("rain_mm_1h", 0)
                     temp = weather.get("temp_c", 0)
-                    if rain > 40: 
+                    if rain > 60: 
                         trigger_event = 'rain'
-                        severity = min(rain / 40.0, 2.0)
-                    elif temp > 42:
+                        severity = min(rain / 60.0, 2.0)
+                    elif temp > 44:
                         trigger_event = 'heat'
-                        severity = min(temp / 42.0, 1.5)
+                        severity = min(temp / 44.0, 1.5)
                         
                 if not trigger_event and not aqi.get("error"):
                     aqi_val = aqi.get("aqi", 0)
                     try:
                         aqi_val = int(aqi_val)
-                        if aqi_val > 350:
+                        if aqi_val > 400:
                             trigger_event = 'aqi'
-                            severity = min(aqi_val / 350.0, 1.5)
+                            severity = min(aqi_val / 400.0, 1.5)
                     except (ValueError, TypeError):
                         pass
 
@@ -59,11 +59,27 @@ async def trigger_monitoring_loop():
                         active_policy = db.query(models.Policy).filter(
                             models.Policy.rider_id == rider.id,
                             models.Policy.is_active == True
-                        ).first()
+                        ).order_by(models.Policy.id.desc()).first()
                         
                         if active_policy:
+                            now = datetime.utcnow()
+                            
+                            # 1. Check a 12-hour cooldown so continuous rain doesn't generate infinite claims
+                            cooldown_claim = db.query(models.Claim).filter(
+                                models.Claim.rider_id == rider.id,
+                                models.Claim.trigger_type == trigger_event,
+                                models.Claim.timestamp >= now - timedelta(hours=12),
+                                models.Claim.status.in_(["approved", "paid"])
+                            ).first()
+                            
+                            if cooldown_claim:
+                                continue
+                                
                             estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
                             payout_amount = min(estimated_loss, active_policy.max_coverage)
+
+                            if payout_amount <= 0:
+                                continue # Coverage is exhausted
 
                             # Fraud detection
                             now = datetime.utcnow()
@@ -85,6 +101,10 @@ async def trigger_monitoring_loop():
                                 db.add(flagged_claim)
                                 db.commit()
                                 continue
+
+                            # 2. Deduct the paid amount from max_coverage to prevent infinite claims
+                            active_policy.max_coverage -= payout_amount
+                            db.add(active_policy)
 
                             new_claim = models.Claim(
                                 rider_id=rider.id,
@@ -140,10 +160,32 @@ def create_zone(zone: schemas.ZoneCreate, db: Session = Depends(get_db)):
 def read_zones(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return db.query(models.Zone).offset(skip).limit(limit).all()
 
+@app.get("/zones/{zone_id}/risk")
+def get_zone_risk(zone_id: int, db: Session = Depends(get_db)):
+    zone = db.query(models.Zone).filter(models.Zone.id == zone_id).first()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+    
+    from services.weather import get_current_weather
+    from services.aqi import get_current_aqi
+    from ml.estimators import calculate_risk_premium
+    weather = get_current_weather(zone.city)
+    aqi = get_current_aqi(zone.city)
+    
+    risk_premium = calculate_risk_premium(100, weather, aqi)
+    multiplier = risk_premium / 100.0
+    
+    return {"multiplier": multiplier}
+
 @app.post("/riders/", response_model=schemas.Rider)
 def create_rider(rider: schemas.RiderCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Rider).filter(models.Rider.phone_number == rider.phone_number).first()
     if existing:
+        existing.average_daily_income = rider.average_daily_income
+        existing.zone_id = rider.zone_id
+        existing.upi_id = rider.upi_id
+        db.commit()
+        db.refresh(existing)
         return existing
     db_rider = models.Rider(**rider.model_dump())
     db.add(db_rider)
@@ -181,7 +223,7 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
     existing_policy = db.query(models.Policy).filter(
         models.Policy.rider_id == policy.rider_id,
         models.Policy.is_active == True
-    ).first()
+    ).order_by(models.Policy.id.desc()).first()
     
     if existing_policy:
         return existing_policy
@@ -212,6 +254,75 @@ def create_policy(policy: schemas.PolicyCreate, db: Session = Depends(get_db)):
     db.refresh(db_policy)
     return db_policy
 
+@app.post("/payment/create-subscription", response_model=schemas.SubscriptionCreateResponse)
+def create_subscription_endpoint(rider_id: int, db: Session = Depends(get_db)):
+    rider = db.query(models.Rider).filter(models.Rider.id == rider_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+    
+    zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+    weather = get_current_weather(zone.city)
+    aqi = get_current_aqi(zone.city)
+    
+    # AI Dynamic Personalized Coverage (Max 3 days of fully lost income)
+    personalized_max_coverage = rider.average_daily_income * 3
+    
+    # Calculate base premium preserving zone risk weight (Chennai 40 base = 4% of 1000)
+    personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
+    premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
+    
+    from services.payments import create_subscription
+    try:
+        sub_data = create_subscription(premium * 100, f"StablFlo Premium - {zone.name}")
+        return sub_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/payment/verify-subscription", response_model=schemas.Policy)
+def verify_subscription_endpoint(data: schemas.SubscriptionVerify, db: Session = Depends(get_db)):
+    from services.payments import verify_subscription_signature
+    
+    is_valid = verify_subscription_signature(
+        data.razorpay_payment_id,
+        data.razorpay_subscription_id,
+        data.razorpay_signature
+    )
+    if not is_valid:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    rider = db.query(models.Rider).filter(models.Rider.id == data.rider_id).first()
+    if not rider:
+        raise HTTPException(status_code=404, detail="Rider not found")
+
+    zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+    weather = get_current_weather(zone.city)
+    aqi = get_current_aqi(zone.city)
+    
+    # Re-calculate to safely verify
+    personalized_max_coverage = rider.average_daily_income * 3
+    personalized_base_premium = int(personalized_max_coverage * (zone.base_premium / 1000.0))
+    premium = calculate_risk_premium(personalized_base_premium, weather, aqi)
+
+    existings = db.query(models.Policy).filter(
+        models.Policy.rider_id == rider.id,
+        models.Policy.is_active == True
+    ).all()
+    for existing in existings:
+        existing.is_active = False
+
+    db_policy = models.Policy(
+        rider_id=rider.id,
+        start_date=datetime.utcnow(),
+        end_date=datetime.utcnow() + timedelta(days=7),
+        premium_paid=premium,
+        max_coverage=personalized_max_coverage,
+        is_active=True
+    )
+    db.add(db_policy)
+    db.commit()
+    db.refresh(db_policy)
+    return db_policy
+
 @app.get("/claims/rider/{rider_id}", response_model=list[schemas.Claim])
 def read_claims(rider_id: int, db: Session = Depends(get_db)):
     return db.query(models.Claim).filter(models.Claim.rider_id == rider_id).all()
@@ -229,11 +340,18 @@ def simulate_event(rider_id: int, trigger_event: str, severity: float, db: Sessi
     active_policy = db.query(models.Policy).filter(
         models.Policy.rider_id == rider.id,
         models.Policy.is_active == True
-    ).first()
+    ).order_by(models.Policy.id.desc()).first()
     if not active_policy: raise HTTPException(status_code=400, detail="No active policy found")
         
     estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
     payout_amount = min(estimated_loss, active_policy.max_coverage)
+
+    if payout_amount <= 0:
+        raise HTTPException(status_code=400, detail="Max coverage exhausted")
+
+    # Deduct coverage for simulated events as well
+    active_policy.max_coverage -= payout_amount
+    db.add(active_policy)
 
     new_claim = models.Claim(
         rider_id=rider.id,

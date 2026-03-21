@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchZones, createRider, createPolicy, fetchClaims, fetchPolicies, simulateAdminEvent } from "@/lib/api";
+import { fetchZones, fetchZoneRisk, createRider, createSubscription, verifySubscription, fetchClaims, fetchPolicies, simulateAdminEvent } from "@/lib/api";
+
 import { PoliciesView } from "@/lib/PoliciesView";
 import { ProfileDrawer } from "@/lib/ProfileDrawer";
 import { SettingsView } from "@/lib/SettingsView";
@@ -34,7 +35,10 @@ export default function Home() {
   // Form State
   const [phone, setPhone] = useState("");
   const [averageDailyIncome, setAverageDailyIncome] = useState<number | "">("");
+  const [upiId, setUpiId] = useState("");
   const [zoneId, setZoneId] = useState<string>("");
+  const [riskMultiplier, setRiskMultiplier] = useState(1.0);
+
   const [formError, setFormError] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -59,6 +63,14 @@ export default function Home() {
       setStep(1);
     }
   }, []);
+
+  useEffect(() => {
+    if (zoneId) {
+      fetchZoneRisk(parseInt(zoneId))
+        .then(data => setRiskMultiplier(data.multiplier))
+        .catch(err => console.error("Risk fetch error:", err));
+    }
+  }, [zoneId]);
 
   useEffect(() => {
     if (step === 1 && riderId && !devMode) {
@@ -91,20 +103,56 @@ export default function Home() {
       return;
     }
     if (!zoneId) return;
+    if (!upiId.includes("@")) {
+      setFormError("Enter a valid UPI ID (e.g. 9876543210@ybl) for payouts.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const rider = await createRider(phone, parseInt(zoneId), Number(averageDailyIncome || 900));
-      setRiderId(rider.id);
-      localStorage.setItem('stablflo_rider_id', rider.id.toString());
-      localStorage.setItem('stablflo_phone', phone);
+      const rider = await createRider(phone, parseInt(zoneId), Number(averageDailyIncome || 900), upiId);
 
-      const policy = await createPolicy(rider.id);
-      setActivePolicy(policy);
+      const subRes = await createSubscription(rider.id);
 
-      const zone = zones.find(z => z.id.toString() === zoneId);
-      if (zone) setSelectedZone(zone);
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_testkey",
+        subscription_id: subRes.subscription_id,
+        name: "StablFlo",
+        description: "Weekly Premium Autopay",
+        handler: async function (response: any) {
+          try {
+            const policy = await verifySubscription({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+                rider_id: rider.id
+            });
+            setActivePolicy(policy);
+            
+            setRiderId(rider.id);
+            localStorage.setItem('stablflo_rider_id', rider.id.toString());
+            localStorage.setItem('stablflo_phone', phone);
+            const zone = zones.find(z => z.id.toString() === zoneId);
+            if (zone) setSelectedZone(zone);
+            setStep(1);
+          } catch (e) {
+             setFormError("Verification failed.");
+          }
+        },
+        prefill: {
+          contact: phone,
+        },
+        theme: {
+          color: "#16a34a"
+        }
+      };
+      
+      const rzp1 = new (window as any).Razorpay(options);
+      rzp1.on('payment.failed', function (response: any){
+         setFormError("Autopay mandate setup failed: " + response.error.description);
+      });
+      rzp1.open();
 
-      setStep(1);
     } catch (e) {
       console.error(e);
       const isNetwork = e instanceof TypeError;
@@ -117,6 +165,7 @@ export default function Home() {
       setLoading(false);
     }
   };
+
 
   function handleSkipOnboarding(zone: Zone) {
     setDevMode(true);
@@ -140,7 +189,10 @@ export default function Home() {
     if (!riderId) return;
     try {
       const claim = await simulateAdminEvent(riderId, triggerType, severity);
-      setClaims(prev => [claim, ...prev]);
+      setClaims(prev => {
+        if (prev.some(c => c.id === claim.id)) return prev;
+        return [claim, ...prev];
+      });
     } catch (err) {
       console.error(err);
       alert("Failed to simulate event - ensure backend is running.");
@@ -230,6 +282,23 @@ export default function Home() {
             </div>
           </div>
 
+          {/* UPI input */}
+          <div className="mb-4">
+            <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>UPI ID FOR PAYOUTS</p>
+            <div
+              className="flex items-center rounded-xl overflow-hidden"
+              style={{ background: "#111", border: "1px solid #1f1f1f" }}
+            >
+              <input
+                type="text"
+                value={upiId}
+                onChange={(e) => { setUpiId(e.target.value); setFormError(null); }}
+                className="flex-1 bg-transparent px-4 py-3.5 text-white text-sm focus:outline-none"
+                placeholder="phone@ybl or string@okicici"
+              />
+            </div>
+          </div>
+
           {/* Zone select */}
           <div className="mb-4">
             <p className="text-xs font-semibold mb-2" style={{ color: "#555", letterSpacing: "2px" }}>DELIVERY ZONE</p>
@@ -257,9 +326,15 @@ export default function Home() {
             >
               <div>
                 <p className="text-xs font-semibold" style={{ color: "#16a34a", letterSpacing: "2px" }}>EST. WEEKLY PREMIUM</p>
-                <p className="text-xs mt-0.5" style={{ color: "#555" }}>Scales with AI risk forecast</p>
+                <p className="text-xs mt-0.5" style={{ color: "#555" }}>
+                  {riskMultiplier > 1.0 
+                    ? `Includes +${Math.round((riskMultiplier - 1) * 100)}% live weather penalty` 
+                    : "Clear skies (No risk penalty)"}
+                </p>
               </div>
-              <p className="font-black text-2xl" style={{ color: "#16a34a" }}>₹{sZone.base_premium}</p>
+              <p className="font-black text-2xl" style={{ color: "#16a34a" }}>
+                ₹{averageDailyIncome ? Math.floor((Number(averageDailyIncome) * 3) * (sZone.base_premium / 1000) * riskMultiplier) : sZone.base_premium}
+              </p>
             </div>
           )}
 
@@ -277,7 +352,7 @@ export default function Home() {
           {/* CTA */}
           <button
             onClick={handleSubscribe}
-            disabled={loading || zones.length === 0 || !phone || !averageDailyIncome}
+            disabled={loading || zones.length === 0 || !phone || !averageDailyIncome || !upiId}
             className="w-full rounded-xl py-4 font-bold text-white text-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
             style={{ background: "#16a34a", letterSpacing: "0.3px" }}
           >
@@ -303,11 +378,17 @@ export default function Home() {
 
   const monogram = getMonogram(phone);
   const digits10 = phone.replace(/\D/g, "").slice(-10);
-  const upiId = digits10.length === 10
-    ? `${digits10.slice(0, 5)}@upi`
-    : "";
-  const paidClaimsTotal = claims.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
-  const paidClaimsCount = claims.filter(c => c.status === "paid").length;
+  const upiIdDisplay = upiId || (digits10.length === 10 ? `${digits10.slice(0, 5)}@upi` : "");
+  // Filter claims to only show those that occurred during the active policy's cycle
+  const currentCycleClaims = claims.filter(c => {
+    if (!activePolicy) return false;
+    const claimTime = new Date(c.timestamp).getTime();
+    const policyStart = new Date(activePolicy.start_date).getTime();
+    return claimTime >= policyStart;
+  });
+
+  const paidClaimsTotal = currentCycleClaims.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
+  const paidClaimsCount = currentCycleClaims.filter(c => c.status === "paid").length;
 
   const navItems: { tab: Tab; icon: string; label: string }[] = [
     { tab: "home", icon: "🏠", label: "Home" },
@@ -335,7 +416,7 @@ export default function Home() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
         phone={phone}
-        upiId={upiId}
+        upiId={upiIdDisplay}
         zone={selectedZone}
         activePolicy={activePolicy}
         claims={claims}
@@ -453,19 +534,19 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              {claims.length === 0 ? (
+              {currentCycleClaims.length === 0 ? (
                 <div
                   className="text-center py-10 rounded-2xl"
                   style={{ border: "1px dashed #1f1f1f" }}
                 >
-                  <p className="text-sm" style={{ color: "#555" }}>No payouts yet.</p>
+                  <p className="text-sm" style={{ color: "#555" }}>No payouts yet this cycle.</p>
                   <p className="text-xs mt-1" style={{ color: "#333" }}>
                     If weather breaches the threshold, a payout appears here instantly.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {claims.map(claim => (
+                  {currentCycleClaims.map(claim => (
                     <div
                       key={claim.id}
                       className="flex items-center justify-between rounded-xl p-4"

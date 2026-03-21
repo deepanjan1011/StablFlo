@@ -128,16 +128,16 @@ export function SettingsView({ riderId: _riderId, onLogout }: SettingsViewProps)
           icon="📍"
           iconBg="rgba(139,92,246,0.1)"
           title="Zone & Thresholds"
-          subtitle="Rain 40mm · Heat 42°C · AQI 350"
+          subtitle="Rain 60mm · Heat 44°C · AQI 400"
           right={<span style={{ color: "#555", fontSize: 13 }} onClick={() => setThresholdsExpanded(v => !v)} role="button" tabIndex={0}>→</span>}
         />
         {thresholdsExpanded && (
           <div className="px-4 pb-4">
             <div className="rounded-xl p-3" style={{ background: "#0a0a0a", border: "1px solid #1a1a1a" }}>
               {[
-                { icon: "🌧️", label: "Heavy Rain", rule: "Rain > 40mm/hr triggers a payout" },
-                { icon: "☀️", label: "Extreme Heat", rule: "Temperature > 42°C triggers a payout" },
-                { icon: "🏭", label: "Poor Air Quality", rule: "AQI > 350 triggers a payout" },
+                { icon: "🌧️", label: "Severe Rain", rule: "Rain > 60mm/hr triggers a payout" },
+                { icon: "☀️", label: "Extreme Heat", rule: "Temperature > 44°C triggers a payout" },
+                { icon: "🏭", label: "Hazardous AQI", rule: "AQI > 400 triggers a payout" },
               ].map(({ icon, label, rule }) => (
                 <div key={label} className="flex gap-3 py-2" style={{ borderBottom: "1px solid #1a1a1a" }}>
                   <span>{icon}</span>
@@ -190,16 +190,7 @@ export function SettingsView({ riderId: _riderId, onLogout }: SettingsViewProps)
         )}
       </SettingsCard>
 
-      {/* GROUP: Account */}
-      <SectionLabel>Account</SectionLabel>
-      <SettingsCard className="mb-4">
-        <SettingsRow
-          icon="🚪"
-          iconBg="rgba(107,114,128,0.1)"
-          title="Log Out"
-          right={<span style={{ color: "#555", fontSize: 13 }} onClick={onLogout} role="button" tabIndex={0}>→</span>}
-        />
-      </SettingsCard>
+
 
       {/* GROUP: Danger Zone */}
       <p className="text-xs font-bold mb-2" style={{ color: "rgba(239,68,68,0.5)", letterSpacing: "2px" }}>DANGER ZONE</p>

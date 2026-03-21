@@ -73,3 +73,14 @@ class Claim(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Subscriptions ---
+class SubscriptionCreateResponse(BaseModel):
+    subscription_id: str
+    plan_id: str
+
+class SubscriptionVerify(BaseModel):
+    razorpay_payment_id: str
+    razorpay_subscription_id: str
+    razorpay_signature: str
+    rider_id: int

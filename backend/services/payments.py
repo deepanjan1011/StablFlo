@@ -71,8 +71,9 @@ def initiate_payout(rider_upi: str, amount: int, claim_id: int) -> dict:
     amount is in INR (converted to paise internally).
     Returns dict with status and transaction_id.
     """
-    if _is_placeholder():
-        print(f"[PAYOUT] SIMULATED — ₹{amount} to {rider_upi} for Claim #{claim_id}")
+    _, _, account_number = _credentials()
+    if _is_placeholder() or not account_number:
+        print(f"[PAYOUT] SIMULATED (No RazorpayX Account Configured) — ₹{amount} to {rider_upi} for Claim #{claim_id}")
         return {"status": "simulated", "transaction_id": f"txn_sim_{claim_id}"}
 
     contact_id = _create_contact(rider_upi, claim_id)
@@ -116,3 +117,65 @@ def initiate_payout(rider_upi: str, amount: int, claim_id: int) -> dict:
     except Exception as e:
         print(f"[PAYOUT] EXCEPTION — {e}")
         return {"status": "failed", "error": str(e)}
+
+def _get_razorpay_client():
+    import razorpay
+    key_id, key_secret, _ = _credentials()
+    if not key_id or not key_secret:
+        return None
+    return razorpay.Client(auth=(key_id, key_secret))
+
+def create_subscription(amount_paise: int, plan_name: str) -> dict:
+    """
+    Creates a weekly plan and a subscription.
+    """
+    if _is_placeholder():
+        # simulate returning a fake subscription
+        return {"subscription_id": "sub_fake_12345", "plan_id": "plan_fake_67890"}
+
+    client = _get_razorpay_client()
+    if not client:
+        raise ValueError("Razorpay credentials not set.")
+    
+    # 1. Create a Plan
+    plan_data = {
+        "period": "weekly",
+        "interval": 1,
+        "item": {
+            "name": plan_name,
+            "amount": amount_paise,
+            "currency": "INR",
+            "description": "StablFlo Weekly Premium"
+        }
+    }
+    plan = client.plan.create(plan_data)
+    plan_id = plan["id"]
+
+    # 2. Create a Subscription
+    sub_data = {
+        "plan_id": plan_id,
+        "total_count": 52,     # Valid for 1 year (52 weeks) 
+        "customer_notify": 1
+    }
+    subscription = client.subscription.create(sub_data)
+    return {"subscription_id": subscription["id"], "plan_id": plan_id}
+
+def verify_subscription_signature(payment_id: str, subscription_id: str, signature: str) -> bool:
+    """Verifies the Razorpay mandate creation signature."""
+    if _is_placeholder():
+        return True # Simulate always successful verification
+
+    client = _get_razorpay_client()
+    if not client:
+        return False
+
+    try:
+        client.utility.verify_subscription_payment_signature({
+            'razorpay_subscription_id': subscription_id,
+            'razorpay_payment_id': payment_id,
+            'razorpay_signature': signature
+        })
+        return True
+    except Exception as e:
+        print(f"[SIGNATURE] Verification failed: {e}")
+        return False
