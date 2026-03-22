@@ -298,7 +298,11 @@ def read_root():
     return {"message": "Welcome to StablFlo API"}
 
 @app.post("/zones/", response_model=schemas.Zone)
-def create_zone(zone: schemas.ZoneCreate, db: Session = Depends(get_db)):
+def create_zone(
+    zone: schemas.ZoneCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_key)
+):
     db_zone = models.Zone(**zone.model_dump())
     db.add(db_zone)
     db.commit()
