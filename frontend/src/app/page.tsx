@@ -58,7 +58,16 @@ export default function Home() {
     fetchZones().then(data => {
       setZones(data);
       if (data.length > 0) setZoneId(data[0].id.toString());
-    }).catch(err => console.error(err));
+    }).catch(async (err) => {
+      console.error(err);
+      // Offline fallback: load cached zones
+      const { cacheGet } = await import("@/lib/offline-cache");
+      const cached = cacheGet<Zone[]>("zones");
+      if (cached) {
+        setZones(cached.data);
+        if (cached.data.length > 0) setZoneId(cached.data[0].id.toString());
+      }
+    });
   }, []);
 
   useEffect(() => {

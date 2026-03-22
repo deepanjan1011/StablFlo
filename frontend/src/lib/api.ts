@@ -1,3 +1,5 @@
+import { cacheSet, cacheGet } from "./offline-cache";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE
   ?? (typeof window !== "undefined"
     ? `http://${window.location.hostname}:8000`
@@ -21,7 +23,9 @@ async function getAdminHeaders(): Promise<HeadersInit> {
 export async function fetchZones() {
   const res = await fetch(`${API_BASE}/zones/`);
   if (!res.ok) throw new Error("Failed to fetch zones");
-  return res.json();
+  const data = await res.json();
+  cacheSet("zones", data);
+  return data;
 }
 
 export async function fetchZoneRisk(zoneId: number) {
@@ -66,21 +70,37 @@ export async function verifySubscription(data: any) {
 }
 
 export async function fetchClaims(riderId: number) {
-  const res = await fetch(`${API_BASE}/claims/rider/${riderId}`, {
-    cache: "no-store",
-    headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
-  });
-  if (!res.ok) throw new Error(`Failed to fetch claims (${res.status})`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/claims/rider/${riderId}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error(`Failed to fetch claims (${res.status})`);
+    const data = await res.json();
+    cacheSet(`claims_${riderId}`, data);
+    return data;
+  } catch (err) {
+    const cached = cacheGet(`claims_${riderId}`);
+    if (cached) return cached.data;
+    throw err;
+  }
 }
 
 export async function fetchPolicies(riderId: number) {
-  const res = await fetch(`${API_BASE}/policies/rider/${riderId}`, {
-    cache: "no-store",
-    headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
-  });
-  if (!res.ok) throw new Error(`Failed to fetch policies (${res.status})`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/policies/rider/${riderId}`, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache", ...await getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error(`Failed to fetch policies (${res.status})`);
+    const data = await res.json();
+    cacheSet(`policies_${riderId}`, data);
+    return data;
+  } catch (err) {
+    const cached = cacheGet(`policies_${riderId}`);
+    if (cached) return cached.data;
+    throw err;
+  }
 }
 
 export async function requestZoneChange(riderId: number, zoneId: number) {
