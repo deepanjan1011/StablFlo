@@ -200,6 +200,7 @@ async def renewal_job():
     In production, swap asyncio.sleep(60) → asyncio.sleep(86400).
     """
     while True:
+        db = None
         try:
             now = datetime.utcnow()
             print(f"[RENEWAL] Scanning for expired policies at {now.isoformat()}Z...")
@@ -212,7 +213,7 @@ async def renewal_job():
 
             if not expiring_policies:
                 print("[RENEWAL] No expiring policies found.")
-            
+
             for policy in expiring_policies:
                 rider = db.query(models.Rider).filter(models.Rider.id == policy.rider_id).first()
                 if not rider:
@@ -265,10 +266,12 @@ async def renewal_job():
                 print(f"[RENEWAL] New policy created for rider #{rider.id}, valid until {new_policy.end_date.isoformat()}Z")
 
             db.commit()
-            db.close()
         except Exception as e:
             print(f"[RENEWAL ERROR] {e}")
-        
+        finally:
+            if db:
+                db.close()
+
         # Dev: check every 60 seconds. Prod: 86400 (daily)
         await asyncio.sleep(60)
 
@@ -312,7 +315,6 @@ def get_zone_risk(zone_id: int, db: Session = Depends(get_db)):
     if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
     
-    from services.weather_cache import get_cached_weather as get_current_weather, get_cached_aqi as get_current_aqi
     from ml.estimators import calculate_risk_premium
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
