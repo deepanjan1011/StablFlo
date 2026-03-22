@@ -12,8 +12,7 @@ from firebase_admin import credentials, auth as firebase_auth
 from db.database import engine, get_db, SessionLocal, Base
 from db import models
 import schemas
-from services.weather import get_current_weather
-from services.aqi import get_current_aqi
+from services.weather_cache import get_cached_weather as get_current_weather, get_cached_aqi as get_current_aqi
 from services.payments import initiate_payout, charge_subscription
 from ml.estimators import calculate_risk_premium, estimate_income_loss
 from ml.fraud_detector import is_fraudulent
@@ -296,8 +295,7 @@ def get_zone_risk(zone_id: int, db: Session = Depends(get_db)):
     if not zone:
         raise HTTPException(status_code=404, detail="Zone not found")
     
-    from services.weather import get_current_weather
-    from services.aqi import get_current_aqi
+    from services.weather_cache import get_cached_weather as get_current_weather, get_cached_aqi as get_current_aqi
     from ml.estimators import calculate_risk_premium
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
