@@ -62,116 +62,133 @@ async def require_admin_key(x_admin_key: str = Header(..., alias="X-Admin-Key"))
         raise HTTPException(status_code=403, detail="Invalid admin key")
 
 
+MONITOR_INTERVAL = int(os.getenv("MONITOR_INTERVAL_SECONDS", "15"))  # 900 for prod
+MONITOR_BATCH_SIZE = int(os.getenv("MONITOR_BATCH_SIZE", "50"))
+
+
+def batch_zones(zones, batch_size):
+    """Yield successive batches from a list of zones."""
+    for i in range(0, len(zones), batch_size):
+        yield zones[i:i + batch_size]
+
+
 async def trigger_monitoring_loop():
     while True:
+        db = None
         try:
-            print("[MONITOR] Running trigger monitoring loop...")
+            print(f"[MONITOR] Running trigger monitoring loop...")
             db = SessionLocal()
-            
+
             zones = db.query(models.Zone).filter(models.Zone.status == "active").all()
-            for zone in zones:
-                weather = get_current_weather(zone.city)
-                aqi = get_current_aqi(zone.city)
-                
-                trigger_event = None
-                severity = 1.0
-                
-                if not weather.get("error"):
-                    rain = weather.get("rain_mm_1h", 0)
-                    temp = weather.get("temp_c", 0)
-                    if rain > 60: 
-                        trigger_event = 'rain'
-                        severity = min(rain / 60.0, 2.0)
-                    elif temp > 44:
-                        trigger_event = 'heat'
-                        severity = min(temp / 44.0, 1.5)
-                        
-                if not trigger_event and not aqi.get("error"):
-                    aqi_val = aqi.get("aqi", 0)
-                    try:
-                        aqi_val = int(aqi_val)
-                        if aqi_val > 400:
-                            trigger_event = 'aqi'
-                            severity = min(aqi_val / 400.0, 1.5)
-                    except (ValueError, TypeError):
-                        pass
+            print(f"[MONITOR] Processing {len(zones)} active zones in batches of {MONITOR_BATCH_SIZE}")
 
-                if trigger_event:
-                    print(f"[TRIGGER] {trigger_event.upper()} detected in {zone.name}!")
-                    riders = db.query(models.Rider).filter(models.Rider.zone_id == zone.id).all()
-                    
-                    for rider in riders:
-                        active_policy = db.query(models.Policy).filter(
-                            models.Policy.rider_id == rider.id,
-                            models.Policy.is_active == True
-                        ).order_by(models.Policy.id.desc()).first()
-                        
-                        if active_policy:
-                            now = datetime.utcnow()
-                            
-                            # 1. Check a 12-hour cooldown so continuous rain doesn't generate infinite claims
-                            cooldown_claim = db.query(models.Claim).filter(
-                                models.Claim.rider_id == rider.id,
-                                models.Claim.trigger_type == trigger_event,
-                                models.Claim.timestamp >= now - timedelta(hours=12),
-                                models.Claim.status.in_(["approved", "paid"])
-                            ).first()
-                            
-                            if cooldown_claim:
-                                continue
-                                
-                            estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
-                            payout_amount = min(estimated_loss, active_policy.max_coverage)
+            for batch in batch_zones(zones, MONITOR_BATCH_SIZE):
+                for zone in batch:
+                    weather = get_current_weather(zone.city)
+                    aqi = get_current_aqi(zone.city)
 
-                            if payout_amount <= 0:
-                                continue # Coverage is exhausted
+                    trigger_event = None
+                    severity = 1.0
 
-                            # Fraud detection
-                            now = datetime.utcnow()
-                            days_since_start = max(0, (now - active_policy.start_date).days)
-                            hour_now = now.hour
-                            recent_claims_count = db.query(models.Claim).filter(
-                                models.Claim.rider_id == rider.id,
-                                models.Claim.timestamp >= now - timedelta(hours=24)
-                            ).count()
+                    if not weather.get("error"):
+                        rain = weather.get("rain_mm_1h", 0)
+                        temp = weather.get("temp_c", 0)
+                        if rain > 60:
+                            trigger_event = 'rain'
+                            severity = min(rain / 60.0, 2.0)
+                        elif temp > 44:
+                            trigger_event = 'heat'
+                            severity = min(temp / 44.0, 1.5)
 
-                            if is_fraudulent(payout_amount, severity, hour_now, days_since_start, recent_claims_count):
-                                print(f"[FRAUD] Anomalous claim flagged for rider {rider.id} — skipping payout")
-                                flagged_claim = models.Claim(
+                    if not trigger_event and not aqi.get("error"):
+                        aqi_val = aqi.get("aqi", 0)
+                        try:
+                            aqi_val = int(aqi_val)
+                            if aqi_val > 400:
+                                trigger_event = 'aqi'
+                                severity = min(aqi_val / 400.0, 1.5)
+                        except (ValueError, TypeError):
+                            pass
+
+                    if trigger_event:
+                        print(f"[TRIGGER] {trigger_event.upper()} detected in {zone.name}!")
+                        riders = db.query(models.Rider).filter(models.Rider.zone_id == zone.id).all()
+
+                        for rider in riders:
+                            active_policy = db.query(models.Policy).filter(
+                                models.Policy.rider_id == rider.id,
+                                models.Policy.is_active == True
+                            ).order_by(models.Policy.id.desc()).first()
+
+                            if active_policy:
+                                now = datetime.utcnow()
+
+                                cooldown_claim = db.query(models.Claim).filter(
+                                    models.Claim.rider_id == rider.id,
+                                    models.Claim.trigger_type == trigger_event,
+                                    models.Claim.timestamp >= now - timedelta(hours=12),
+                                    models.Claim.status.in_(["approved", "paid"])
+                                ).first()
+
+                                if cooldown_claim:
+                                    continue
+
+                                estimated_loss = estimate_income_loss(rider.average_daily_income, trigger_event, severity)
+                                payout_amount = min(estimated_loss, active_policy.max_coverage)
+
+                                if payout_amount <= 0:
+                                    continue
+
+                                now = datetime.utcnow()
+                                days_since_start = max(0, (now - active_policy.start_date).days)
+                                hour_now = now.hour
+                                recent_claims_count = db.query(models.Claim).filter(
+                                    models.Claim.rider_id == rider.id,
+                                    models.Claim.timestamp >= now - timedelta(hours=24)
+                                ).count()
+
+                                if is_fraudulent(payout_amount, severity, hour_now, days_since_start, recent_claims_count):
+                                    print(f"[FRAUD] Anomalous claim flagged for rider {rider.id} — skipping payout")
+                                    flagged_claim = models.Claim(
+                                        rider_id=rider.id,
+                                        trigger_type=trigger_event,
+                                        amount=payout_amount,
+                                        status="flagged",
+                                    )
+                                    db.add(flagged_claim)
+                                    db.commit()
+                                    continue
+
+                                active_policy.max_coverage -= payout_amount
+                                db.add(active_policy)
+
+                                new_claim = models.Claim(
                                     rider_id=rider.id,
                                     trigger_type=trigger_event,
                                     amount=payout_amount,
-                                    status="flagged",
+                                    status="approved"
                                 )
-                                db.add(flagged_claim)
+                                db.add(new_claim)
                                 db.commit()
-                                continue
+                                db.refresh(new_claim)
 
-                            # 2. Deduct the paid amount from max_coverage to prevent infinite claims
-                            active_policy.max_coverage -= payout_amount
-                            db.add(active_policy)
+                                initiate_payout(rider.upi_id, payout_amount, new_claim.id)
 
-                            new_claim = models.Claim(
-                                rider_id=rider.id,
-                                trigger_type=trigger_event,
-                                amount=payout_amount,
-                                status="approved"
-                            )
-                            db.add(new_claim)
-                            db.commit()
-                            db.refresh(new_claim)
+                                new_claim.status = "paid"
+                                db.commit()
 
-                            initiate_payout(rider.upi_id, payout_amount, new_claim.id)
+                # Small delay between batches to spread API load
+                await asyncio.sleep(1)
 
-                            new_claim.status = "paid"
-                            db.commit()
-
-            db.close()
         except Exception as e:
             print(f"[MONITOR ERROR] {e}")
-        
-        # Test frequency: 15 seconds instead of real 15 min
-        await asyncio.sleep(15)
+        finally:
+            if db:
+                db.close()
+
+        from services.weather_cache import get_cache_stats
+        print(f"[MONITOR] Cache stats: {get_cache_stats()}")
+        await asyncio.sleep(MONITOR_INTERVAL)
 
 async def renewal_job():
     """
