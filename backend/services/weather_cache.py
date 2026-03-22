@@ -20,39 +20,33 @@ def _normalize_city(city: str) -> str:
 
 
 def get_cached_weather(city: str) -> dict:
-    """Fetch weather with TTL caching. Errors are not cached."""
+    """Fetch weather with TTL caching. Errors are not cached.
+    Lock held across check-fetch-store to prevent thundering herd."""
     key = _normalize_city(city)
     with _lock:
         if key in _weather_cache:
             _stats["weather_hits"] += 1
             return _weather_cache[key]
         _stats["weather_misses"] += 1
-
-    result = weather.get_current_weather(city)
-
-    if not result.get("error"):
-        with _lock:
+        result = weather.get_current_weather(city)
+        if not result.get("error"):
             _weather_cache[key] = result
-
-    return result
+        return result
 
 
 def get_cached_aqi(city: str) -> dict:
-    """Fetch AQI with TTL caching. Errors are not cached."""
+    """Fetch AQI with TTL caching. Errors are not cached.
+    Lock held across check-fetch-store to prevent thundering herd."""
     key = _normalize_city(city)
     with _lock:
         if key in _aqi_cache:
             _stats["aqi_hits"] += 1
             return _aqi_cache[key]
         _stats["aqi_misses"] += 1
-
-    result = aqi.get_current_aqi(city)
-
-    if not result.get("error"):
-        with _lock:
+        result = aqi.get_current_aqi(city)
+        if not result.get("error"):
             _aqi_cache[key] = result
-
-    return result
+        return result
 
 
 def get_cache_stats() -> dict:
@@ -66,7 +60,9 @@ def get_cache_stats() -> dict:
 
 
 def clear_all_caches():
-    """Clear both caches. Useful for testing or manual refresh."""
+    """Clear both caches and reset stats. Useful for testing or manual refresh."""
     with _lock:
         _weather_cache.clear()
         _aqi_cache.clear()
+        for key in _stats:
+            _stats[key] = 0

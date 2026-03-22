@@ -3,15 +3,17 @@ import pytest
 from services.weather_cache import (
     get_cached_weather, get_cached_aqi,
     get_cache_stats, clear_all_caches,
-    _weather_cache, _aqi_cache,
+    _weather_cache, _aqi_cache, _stats,
 )
 
 
 @pytest.fixture(autouse=True)
 def clean_caches():
-    """Clear caches before each test to prevent cross-test pollution."""
+    """Clear caches and reset stats before each test."""
     _weather_cache.clear()
     _aqi_cache.clear()
+    for k in _stats:
+        _stats[k] = 0
     yield
     _weather_cache.clear()
     _aqi_cache.clear()
@@ -104,7 +106,9 @@ def test_cache_stats_tracking():
         get_cached_weather("bangalore")
 
         stats = get_cache_stats()
-        assert stats["weather_size"] >= 1
+        assert stats["weather_size"] == 1
+        assert stats["weather_hits"] == 1
+        assert stats["weather_misses"] == 1
 
 
 def test_clear_all_caches():
@@ -120,5 +124,8 @@ def test_clear_all_caches():
         assert get_cache_stats()["aqi_size"] == 1
 
         clear_all_caches()
-        assert get_cache_stats()["weather_size"] == 0
-        assert get_cache_stats()["aqi_size"] == 0
+        stats = get_cache_stats()
+        assert stats["weather_size"] == 0
+        assert stats["aqi_size"] == 0
+        assert stats["weather_hits"] == 0
+        assert stats["weather_misses"] == 0
