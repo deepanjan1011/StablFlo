@@ -612,3 +612,17 @@ def simulate_renewal(
         "new_end_date": new_policy.end_date.isoformat() + "Z",
         "charge_result": charge_result
     }
+
+@app.get("/admin/cache-stats")
+def cache_stats(_: None = Depends(require_admin_key)):
+    """View weather/AQI cache statistics."""
+    from services.weather_cache import get_cache_stats
+    return get_cache_stats()
+
+
+@app.post("/admin/clear-cache")
+def clear_cache(_: None = Depends(require_admin_key)):
+    """Force-clear all weather/AQI caches."""
+    from services.weather_cache import clear_all_caches
+    clear_all_caches()
+    return {"cleared": True}
