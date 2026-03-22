@@ -39,3 +39,7 @@ __pycache__/
 docs/superpowers/
 .superpowers/
 .claude/
+.agent/
+.agents/
+.windsurf/
+skills-lock.json
