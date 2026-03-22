@@ -12,7 +12,6 @@ backend/.pytest_cache/
 backend/.coverage
 backend/htmlcov/
 backend/stablflo.db
-backend/alembic.ini
 backend/.env.example
 
 # Node / Frontend

@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
 
-from db.database import engine, get_db, SessionLocal, Base
+from db.database import get_db, SessionLocal
 from db import models
 import schemas
 from services.weather_cache import get_cached_weather as get_current_weather, get_cached_aqi as get_current_aqi
@@ -17,7 +17,6 @@ from services.payments import initiate_payout, charge_subscription
 from ml.estimators import calculate_risk_premium, estimate_income_loss
 from ml.fraud_detector import is_fraudulent
 
-Base.metadata.create_all(bind=engine)
 
 # --- Firebase Admin initialization ---
 _sa_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
