@@ -171,9 +171,13 @@ async def trigger_monitoring_loop():
                                 db.commit()
                                 db.refresh(new_claim)
 
-                                initiate_payout(rider.upi_id, payout_amount, new_claim.id)
+                                payout_result = initiate_payout(rider.upi_id, payout_amount, new_claim.id)
 
-                                new_claim.status = "paid"
+                                if payout_result.get("status") in ("success", "simulated"):
+                                    new_claim.status = "paid"
+                                else:
+                                    new_claim.status = "approved"
+                                    print(f"[PAYOUT FAILED] Claim #{new_claim.id} for rider {rider.id} — {payout_result}")
                                 db.commit()
 
                 # Small delay between batches to spread API load
@@ -398,7 +402,9 @@ def create_policy(
         db.commit()
 
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
-    
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
     # Calculate premium using real data
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
@@ -425,6 +431,8 @@ def create_subscription_endpoint(
 ):
     rider = assert_owns_rider(rider_id, verified_phone, db)
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
     personalized_max_coverage = rider.average_daily_income * 3
@@ -453,6 +461,8 @@ def verify_subscription_endpoint(
         raise HTTPException(status_code=400, detail="Invalid signature")
     rider = assert_owns_rider(data.rider_id, verified_phone, db)
     zone = db.query(models.Zone).filter(models.Zone.id == rider.zone_id).first()
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
     weather = get_current_weather(zone.city)
     aqi = get_current_aqi(zone.city)
     personalized_max_coverage = rider.average_daily_income * 3
@@ -536,8 +546,11 @@ def simulate_event(
     db.commit()
     db.refresh(new_claim)
 
-    initiate_payout(rider.upi_id, payout_amount, new_claim.id)
-    new_claim.status = "paid"
+    payout_result = initiate_payout(rider.upi_id, payout_amount, new_claim.id)
+    if payout_result.get("status") in ("success", "simulated"):
+        new_claim.status = "paid"
+    else:
+        new_claim.status = "approved"
     db.commit()
     db.refresh(new_claim)
     return new_claim
